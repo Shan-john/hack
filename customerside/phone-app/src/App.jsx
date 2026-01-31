@@ -11,6 +11,8 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [showSplash, setShowSplash] = useState(true);
   const [previewFile, setPreviewFile] = useState(null); // For file preview modal
+  const [showPayment, setShowPayment] = useState(false); // For payment page
+  const [uploadedFileCount, setUploadedFileCount] = useState(0);
   const [numPages, setNumPages] = useState(null);
 
   function onDocumentLoadSuccess({ numPages }) {
@@ -20,7 +22,7 @@ export default function App() {
   // Generate random ID on mount
   useEffect(() => {
     setUserId(Math.floor(Math.random() * 1000000));
-    
+
     // Hide splash screen after 2.5 seconds
     const timer = setTimeout(() => {
       setShowSplash(false);
@@ -31,7 +33,7 @@ export default function App() {
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
-    
+
     // Create file objects with preview URLs for images
     const newFiles = files.map((file) => ({
       file,
@@ -93,7 +95,9 @@ export default function App() {
       const data = await res.json();
       console.log("Response data:", data);
 
-      setStatus(`✅ Sent ${selectedFiles.length} file(s) to laptop`);
+      // Success - redirect to payment page
+      setUploadedFileCount(selectedFiles.length);
+      setShowPayment(true);
       setSelectedFiles([]);
       setUsername("");
     } catch (e) {
@@ -149,7 +153,7 @@ export default function App() {
             </h3>
             {selectedFiles.map((fileObj) => (
               <div key={fileObj.id} style={styles.fileItem}>
-                <div 
+                <div
                   onClick={() => setPreviewFile(fileObj)}
                   style={{
                     display: "flex",
@@ -195,13 +199,13 @@ export default function App() {
       {previewFile && (
         <div style={styles.modalOverlay} onClick={() => setPreviewFile(null)}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <button 
-              onClick={() => setPreviewFile(null)} 
+            <button
+              onClick={() => setPreviewFile(null)}
               style={styles.modalClose}
             >
               ✕
             </button>
-            
+
             <h3 style={styles.modalTitle}>{previewFile.file.name}</h3>
             <p style={styles.modalSize}>
               {(previewFile.file.size / 1024).toFixed(2)} KB • {previewFile.file.type}
@@ -226,10 +230,10 @@ export default function App() {
                 >
                   {numPages && Array.from(new Array(numPages), (el, index) => (
                     <div key={`page_${index + 1}`} style={styles.pdfPageWrapper}>
-                      <Page 
-                        pageNumber={index + 1} 
-                        width={Math.min(window.innerWidth - 60, 600)} 
-                        renderTextLayer={false} 
+                      <Page
+                        pageNumber={index + 1}
+                        width={Math.min(window.innerWidth - 60, 600)}
+                        renderTextLayer={false}
                         renderAnnotationLayer={false}
                         className="pdf-page"
                       />
@@ -326,7 +330,7 @@ const styles = {
     margin: "0 auto",
     animation: "spin 1s linear infinite",
   },
-  
+
   // Main Wrap Styles
   wrap: {
     minHeight: "100vh",
@@ -357,7 +361,7 @@ const styles = {
     margin: "auto",
     border: "1px solid rgba(255, 255, 255, 0.3)",
   },
-  
+
   title: {
     fontSize: 26,
     fontWeight: 700,
@@ -374,7 +378,7 @@ const styles = {
     marginTop: 0,
     fontWeight: 500,
   },
-  
+
   // Form Elements
   input: {
     width: "100%",
@@ -409,7 +413,7 @@ const styles = {
   fileInput: {
     display: "none",
   },
-  
+
   // File List
   fileList: {
     marginBottom: 12,
@@ -485,7 +489,7 @@ const styles = {
     color: "#ffffff",
     boxShadow: "0 2px 8px rgba(255, 107, 107, 0.3)",
   },
-  
+
   // Send Button
   sendBtn: {
     width: "100%",
@@ -513,7 +517,7 @@ const styles = {
     wordBreak: "break-word",
     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
-  
+
   // Preview/History Page Styles
   emptyState: {
     textAlign: "center",
@@ -551,7 +555,7 @@ const styles = {
     color: "#475569",
     padding: "4px 0",
   },
-  
+
   // File Preview Modal Styles
   modalOverlay: {
     position: "fixed",
