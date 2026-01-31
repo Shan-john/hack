@@ -8,7 +8,7 @@ const fs = require("fs");
 const net = require("net");
 
 // Printer Configuration
-const PRINTER_IP = "192.168.1.100"; // Default printer IP - can be changed
+const PRINTER_IP = "127.0.0.1"; // Default: localhost for local testing
 const PRINTER_PORT = 9100; // Raw printing port
 
 // Create uploads directory if it doesn't exist
@@ -42,6 +42,14 @@ const upload = multer({ storage });
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Serve dashboard
+app.get("/dashboard", (req, res) => {
+  res.sendFile(path.join(__dirname, "dashboard.html"));
+});
+
+// Serve uploaded files (for viewing in dashboard)
+app.use("/files", express.static(uploadDir));
 
 // Receive data and files from phone
 app.post("/print", upload.array("files", 10), (req, res) => {
@@ -168,7 +176,7 @@ app.post("/approve-job", (req, res) => {
 });
 
 // Print job using TCP Raw Printing (Port 9100)
-app.post("/print-job", (req, res) => {
+app.post("/print-job", async (req, res) => {
   const { jobId, printerIp } = req.body;
   const targetPrinterIp = printerIp || PRINTER_IP;
 
@@ -184,68 +192,99 @@ app.post("/print-job", (req, res) => {
       return res.status(400).json({ error: "Job must be approved before printing" });
     }
 
-    // Print each file in the job
-    let printedCount = 0;
+    console.log(`\n🖨️  Starting print job: ${jobId}`);
+    console.log(`📡 Printer IP: ${targetPrinterIp}:${PRINTER_PORT}`);
+
+    // Function to print a single file with metadata
+    const printFile = (filePath, fileName, username, jobId) => {
+      return new Promise((resolve, reject) => {
+        const client = new net.Socket();
+        
+        // Set timeout
+        client.setTimeout(30000);
+        
+        client.connect(PRINTER_PORT, targetPrinterIp, () => {
+          console.log(`📡 Connected to printer at ${targetPrinterIp}:${PRINTER_PORT}`);
+          console.log(`🖨️  Sending: ${fileName} (User: ${username})`);
+          
+          // Create metadata header
+          const metadata = JSON.stringify({
+            username: username,
+            fileName: fileName,
+            jobId: jobId,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Read file content
+          const fileContent = fs.readFileSync(filePath);
+          
+          // Send metadata + file content
+          const header = Buffer.from(`METADATA:${metadata}:ENDMETA`);
+          const fullData = Buffer.concat([header, fileContent]);
+          
+          client.write(fullData, () => {
+            console.log(`✅ File sent: ${fileName} (${fileContent.length} bytes)`);
+            client.end();
+          });
+        });
+        
+        client.on('close', () => {
+          console.log(`🔌 Connection closed for ${fileName}`);
+          resolve({ success: true, fileName });
+        });
+        
+        client.on('error', (err) => {
+          console.error(`❌ Print error for ${fileName}:`, err.message);
+          reject({ success: false, fileName, error: err.message });
+        });
+        
+        client.on('timeout', () => {
+          console.error(`⏰ Timeout for ${fileName}`);
+          client.destroy();
+          reject({ success: false, fileName, error: 'Connection timeout' });
+        });
+      });
+    };
+
+    // Print files sequentially
+    const results = [];
     const errors = [];
 
-    job.files.forEach((file, index) => {
+    for (const file of job.files) {
       const filePath = path.join(uploadDir, file.savedName);
-
+      
       if (!fs.existsSync(filePath)) {
         errors.push(`File not found: ${file.originalName}`);
-        return;
+        continue;
       }
-
-      // Create TCP socket connection to printer
-      const client = new net.Socket();
-
-      client.connect(PRINTER_PORT, targetPrinterIp, () => {
-        console.log(`📡 Connected to printer at ${targetPrinterIp}:${PRINTER_PORT}`);
-        console.log(`🖨️  Printing: ${file.originalName}`);
-
-        // Read file and send to printer
-        const fileContent = fs.readFileSync(filePath);
-        client.write(fileContent);
-
-        // Send form feed to eject page (optional, depends on printer)
-        client.write('\x0C');
-
-        client.end();
-        printedCount++;
-
-        console.log(`✅ Printed: ${file.originalName}`);
-      });
-
-      client.on('error', (err) => {
-        console.error(`❌ Print error for ${file.originalName}:`, err.message);
-        errors.push(`${file.originalName}: ${err.message}`);
-      });
-
-      client.on('close', () => {
-        console.log(`🔌 Connection closed for ${file.originalName}`);
-      });
-    });
+      
+      try {
+        const result = await printFile(filePath, file.originalName, job.username, jobId);
+        results.push(result);
+      } catch (err) {
+        errors.push(`${file.originalName}: ${err.error}`);
+      }
+    }
 
     // Update job status
-    setTimeout(() => {
-      if (errors.length === 0) {
-        job.status = "printed";
-        job.printedAt = new Date().toISOString();
-        job.printerIp = targetPrinterIp;
+    if (results.length > 0) {
+      job.status = "printed";
+      job.printedAt = new Date().toISOString();
+      job.printerIp = targetPrinterIp;
+      job.printResults = { printed: results.length, failed: errors.length };
+      
+      fs.writeFileSync(uploadsLogPath, JSON.stringify(logData, null, 2));
+      console.log(`✅ Job ${jobId} marked as printed`);
+    }
 
-        fs.writeFileSync(uploadsLogPath, JSON.stringify(logData, null, 2));
-        console.log(`✅ Job ${jobId} marked as printed`);
-      }
-    }, 1000);
-
-    res.json({
-      success: true,
-      printedCount,
+    res.json({ 
+      success: errors.length === 0, 
+      printedCount: results.length,
       totalFiles: job.files.length,
       errors: errors.length > 0 ? errors : undefined,
       printerIp: targetPrinterIp
     });
-
+    
   } catch (error) {
     console.error("❌ Error printing job:", error);
     res.status(500).json({ error: error.message });

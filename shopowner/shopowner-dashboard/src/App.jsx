@@ -5,7 +5,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [filter, setFilter] = useState("all"); // all, pending, approved, printed, rejected
-  const [printerIp, setPrinterIp] = useState("192.168.1.100");
+  const [printerIp, setPrinterIp] = useState("127.0.0.1");
   const [showSettings, setShowSettings] = useState(false);
   const [status, setStatus] = useState("");
 
