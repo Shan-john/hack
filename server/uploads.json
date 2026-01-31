@@ -25,7 +25,7 @@
       "username": "Sj",
       "userId": "178718",
       "timestamp": "2026-01-31T09:40:16.680Z",
-      "status": "pending",
+      "status": "rejected",
       "fileCount": 1,
       "files": [
         {
@@ -35,7 +35,8 @@
           "mimeType": "application/pdf",
           "uploadedAt": "2026-01-31T09:40:16.680Z"
         }
-      ]
+      ],
+      "updatedAt": "2026-01-31T13:29:18.348Z"
     },
     {
       "username": "Sh",
@@ -66,6 +67,26 @@
           "uploadedAt": "2026-01-31T10:39:06.466Z"
         }
       ]
+    },
+    {
+      "jobId": "JOB_1769871261241_g8c86a9j2",
+      "username": "raj",
+      "userId": "94778",
+      "printerIp": "192.168.1.100",
+      "timestamp": "2026-01-31T14:54:21.241Z",
+      "status": "printed",
+      "fileCount": 1,
+      "files": [
+        {
+          "originalName": "WelcomeGuide.pdf",
+          "savedName": "94778_1769871261217_WelcomeGuide.pdf",
+          "size": 3322740,
+          "mimeType": "application/pdf",
+          "uploadedAt": "2026-01-31T14:54:21.241Z"
+        }
+      ],
+      "approvedAt": "2026-01-31T14:54:36.958Z",
+      "printedAt": "2026-01-31T14:54:42.475Z"
     }
   ]
 }

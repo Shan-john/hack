@@ -252,7 +252,7 @@ export default function App() {
                     <div style={styles.jobUser}>👤 {job.username}</div>
                     <div style={styles.jobId}>ID: {job.userId}</div>
                   </div>
-                  <div style={getStatusStyle(job.status)}>{job.status.toUpperCase()}</div>
+                  <div style={getStatusStyle(job.status || "pending")}>{(job.status || "pending").toUpperCase()}</div>
                 </div>
 
                 {/* Job Info */}
