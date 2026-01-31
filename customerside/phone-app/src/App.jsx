@@ -7,6 +7,8 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [showSplash, setShowSplash] = useState(true);
   const [previewFile, setPreviewFile] = useState(null); // For file preview modal
+  const [showPayment, setShowPayment] = useState(false); // For payment page
+  const [uploadedFileCount, setUploadedFileCount] = useState(0);
 
   // Generate random ID on mount
   useEffect(() => {
@@ -84,7 +86,9 @@ export default function App() {
       const data = await res.json();
       console.log("Response data:", data);
 
-      setStatus(`✅ Sent ${selectedFiles.length} file(s) to laptop`);
+      // Success - redirect to payment page
+      setUploadedFileCount(selectedFiles.length);
+      setShowPayment(true);
       setSelectedFiles([]);
       setUsername("");
     } catch (e) {
@@ -102,6 +106,107 @@ export default function App() {
           <h1 style={styles.splashTitle}>File Upload</h1>
           <p style={styles.splashSubtitle}>Phone to Laptop Transfer</p>
           <div style={styles.loader}></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Payment Page
+  if (showPayment) {
+    const handleRazorpayPayment = () => {
+      // Calculate amount (₹10 per file)
+      const amountPerFile = 10;
+      const totalAmount = uploadedFileCount * amountPerFile;
+
+      const options = {
+        key: "rzp_test_YOUR_KEY_ID", // Replace with your Razorpay Key ID
+        amount: totalAmount * 100, // Amount in paise (₹10 = 1000 paise)
+        currency: "INR",
+        name: "File Upload Service",
+        description: `Payment for ${uploadedFileCount} file(s)`,
+        image: "https://your-logo-url.com/logo.png", // Optional: Your logo
+        handler: function (response) {
+          // Payment successful
+          alert(`Payment Successful! Payment ID: ${response.razorpay_payment_id}`);
+          console.log("Payment Response:", response);
+          setShowPayment(false);
+        },
+        prefill: {
+          name: username || "Customer",
+          email: "customer@example.com",
+          contact: "9999999999",
+        },
+        notes: {
+          file_count: uploadedFileCount,
+          user_id: userId,
+        },
+        theme: {
+          color: "#667eea",
+        },
+        modal: {
+          ondismiss: function() {
+            alert("Payment cancelled");
+          }
+        }
+      };
+
+      // Check if Razorpay is loaded
+      if (typeof window.Razorpay === 'undefined') {
+        alert("Razorpay SDK not loaded. Please refresh the page and try again.");
+        return;
+      }
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+    };
+
+    return (
+      <div style={styles.wrap}>
+        <div style={styles.card}>
+          <div style={styles.successIcon}>✅</div>
+          <h1 style={styles.title}>Upload Successful!</h1>
+          <p style={styles.subtitle}>
+            {uploadedFileCount} file(s) uploaded successfully
+          </p>
+
+          <div style={styles.paymentSection}>
+            <h2 style={styles.paymentTitle}>Select Payment Method</h2>
+            <p style={styles.paymentAmount}>
+              Amount: ₹{uploadedFileCount * 10} ({uploadedFileCount} × ₹10)
+            </p>
+            
+            <button 
+              onClick={() => {
+                alert("Cash payment selected. Please pay ₹" + (uploadedFileCount * 10) + " at the counter.");
+                setShowPayment(false);
+              }}
+              style={styles.paymentBtn}
+            >
+              <span style={styles.paymentIcon}>💵</span>
+              <div style={styles.paymentBtnContent}>
+                <div style={styles.paymentBtnTitle}>Cash Payment</div>
+                <div style={styles.paymentBtnDesc}>Pay ₹{uploadedFileCount * 10} at the counter</div>
+              </div>
+            </button>
+
+            <button 
+              onClick={handleRazorpayPayment}
+              style={styles.paymentBtn}
+            >
+              <span style={styles.paymentIcon}>💳</span>
+              <div style={styles.paymentBtnContent}>
+                <div style={styles.paymentBtnTitle}>Razorpay</div>
+                <div style={styles.paymentBtnDesc}>Pay ₹{uploadedFileCount * 10} online securely</div>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => setShowPayment(false)}
+              style={styles.backToUploadBtn}
+            >
+              ← Back to Upload
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -458,6 +563,84 @@ const styles = {
     color: "#1e293b",
     wordBreak: "break-word",
     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  },
+  
+  // Payment Page Styles
+  successIcon: {
+    fontSize: 80,
+    textAlign: "center",
+    marginBottom: 16,
+    filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.1))",
+  },
+  paymentSection: {
+    marginTop: 24,
+  },
+  paymentTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#ffffff",
+    textAlign: "center",
+    marginBottom: 20,
+    marginTop: 0,
+    textShadow: "0 1px 3px rgba(0,0,0,0.2)",
+  },
+  paymentAmount: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: "#ffffff",
+    textAlign: "center",
+    marginBottom: 20,
+    marginTop: 0,
+    background: "rgba(255, 255, 255, 0.2)",
+    padding: "12px 20px",
+    borderRadius: 12,
+    border: "2px solid rgba(255, 255, 255, 0.3)",
+  },
+  paymentBtn: {
+    width: "100%",
+    padding: "16px 20px",
+    marginBottom: 12,
+    background: "rgba(255, 255, 255, 0.95)",
+    border: "2px solid rgba(255, 255, 255, 0.5)",
+    borderRadius: 16,
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+  },
+  paymentIcon: {
+    fontSize: 40,
+    flexShrink: 0,
+  },
+  paymentBtnContent: {
+    textAlign: "left",
+    flex: 1,
+  },
+  paymentBtnTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#1e293b",
+    marginBottom: 4,
+  },
+  paymentBtnDesc: {
+    fontSize: 13,
+    color: "#64748b",
+    fontWeight: 500,
+  },
+  backToUploadBtn: {
+    width: "100%",
+    padding: 12,
+    marginTop: 16,
+    background: "rgba(255, 255, 255, 0.2)",
+    border: "2px solid rgba(255, 255, 255, 0.3)",
+    borderRadius: 12,
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s ease",
   },
   
   // Preview/History Page Styles
