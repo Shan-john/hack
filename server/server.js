@@ -12,6 +12,14 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
+// Path to JSON log file
+const uploadsLogPath = path.join(__dirname, "uploads.json");
+
+// Initialize uploads log file if it doesn't exist
+if (!fs.existsSync(uploadsLogPath)) {
+  fs.writeFileSync(uploadsLogPath, JSON.stringify({ uploads: [] }, null, 2));
+}
+
 // Configure multer for file storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -49,6 +57,33 @@ app.post("/print", upload.array("files", 10), (req, res) => {
   }
   console.log("===========================\n");
 
+  // Create upload record
+  const uploadRecord = {
+    username: name,
+    userId: id,
+    timestamp: new Date().toISOString(),
+    fileCount: files ? files.length : 0,
+    files: files ? files.map(f => ({
+      originalName: f.originalname,
+      savedName: f.filename,
+      size: f.size,
+      mimeType: f.mimetype,
+      uploadedAt: new Date().toISOString(),
+    })) : [],
+  };
+
+  // Read existing uploads log
+  try {
+    const logData = JSON.parse(fs.readFileSync(uploadsLogPath, 'utf8'));
+    logData.uploads.push(uploadRecord);
+    
+    // Write updated log back to file
+    fs.writeFileSync(uploadsLogPath, JSON.stringify(logData, null, 2));
+    console.log("✅ Upload logged to uploads.json");
+  } catch (error) {
+    console.error("❌ Error writing to uploads.json:", error);
+  }
+
   res.json({
     status: "Received",
     data: {
@@ -64,7 +99,19 @@ app.post("/print", upload.array("files", 10), (req, res) => {
   });
 });
 
+// Get upload history
+app.get("/uploads", (req, res) => {
+  try {
+    const logData = JSON.parse(fs.readFileSync(uploadsLogPath, 'utf8'));
+    res.json(logData);
+  } catch (error) {
+    console.error("❌ Error reading uploads.json:", error);
+    res.json({ uploads: [] });
+  }
+});
+
 app.listen(3000, () => {
   console.log("Server running on http://0.0.0.0:3000");
   console.log(`Upload directory: ${uploadDir}`);
+  console.log(`Upload log: ${uploadsLogPath}`);
 });

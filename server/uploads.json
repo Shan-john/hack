@@ -1,0 +1,34 @@
+{
+  "uploads": [
+    {
+      "username": "Shan",
+      "userId": "345675",
+      "timestamp": "2026-01-31T09:37:57.768Z",
+      "fileCount": 1,
+      "files": [
+        {
+          "originalName": "IMG_20260131_124938.jpg",
+          "savedName": "345675_1769852277639_IMG_20260131_124938.jpg",
+          "size": 3181672,
+          "mimeType": "image/jpeg",
+          "uploadedAt": "2026-01-31T09:37:57.769Z"
+        }
+      ]
+    },
+    {
+      "username": "Sj",
+      "userId": "178718",
+      "timestamp": "2026-01-31T09:40:16.680Z",
+      "fileCount": 1,
+      "files": [
+        {
+          "originalName": "Instructions.pdf",
+          "savedName": "178718_1769852416654_Instructions.pdf",
+          "size": 179029,
+          "mimeType": "application/pdf",
+          "uploadedAt": "2026-01-31T09:40:16.680Z"
+        }
+      ]
+    }
+  ]
+}
