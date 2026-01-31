@@ -1,4 +1,8 @@
 import { useState, useEffect } from "react";
+import { Document, Page, pdfjs } from 'react-pdf';
+
+// Configure PDF worker to use CDN (reliable for Vite)
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export default function App() {
   const [username, setUsername] = useState("");
@@ -7,6 +11,11 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [showSplash, setShowSplash] = useState(true);
   const [previewFile, setPreviewFile] = useState(null); // For file preview modal
+  const [numPages, setNumPages] = useState(null);
+
+  function onDocumentLoadSuccess({ numPages }) {
+    setNumPages(numPages);
+  }
 
   // Generate random ID on mount
   useEffect(() => {
@@ -207,12 +216,28 @@ export default function App() {
                 style={styles.modalImage}
               />
             ) : (previewFile.file.type === "application/pdf" || previewFile.file.name.toLowerCase().endsWith(".pdf")) ? (
-              // PDF preview using embed (better for mobile)
-              <embed
-                src={URL.createObjectURL(previewFile.file)}
-                type="application/pdf"
-                style={styles.modalPdf}
-              />
+              // PDF preview using react-pdf (Works on Mobile!)
+              <div style={styles.pdfContainer}>
+                <Document
+                  file={previewFile.file}
+                  onLoadSuccess={onDocumentLoadSuccess}
+                  loading={<div style={styles.pdfLoading}>Loading PDF...</div>}
+                  error={<div style={styles.pdfError}>Failed to render PDF.</div>}
+                >
+                  {numPages && Array.from(new Array(numPages), (el, index) => (
+                    <div key={`page_${index + 1}`} style={styles.pdfPageWrapper}>
+                      <Page 
+                        pageNumber={index + 1} 
+                        width={Math.min(window.innerWidth - 60, 600)} 
+                        renderTextLayer={false} 
+                        renderAnnotationLayer={false}
+                        className="pdf-page"
+                      />
+                    </div>
+                  ))}
+                </Document>
+                {numPages && <p style={styles.pdfPageInfo}>{numPages} Pages</p>}
+              </div>
             ) : (
               // Other file types
               <div style={styles.modalFileIcon}>
@@ -604,6 +629,38 @@ const styles = {
     border: "none",
     borderRadius: 8,
     background: "#f1f5f9",
+  },
+  pdfContainer: {
+    width: "100%",
+    flex: 1,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    background: "#f1f5f9",
+    borderRadius: 12,
+    padding: "20px 0",
+  },
+  pdfPageWrapper: {
+    marginBottom: 16,
+    display: 'flex',
+    justifyContent: 'center',
+    width: '100%',
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", // Paper shadow
+  },
+  pdfLoading: {
+    padding: 20,
+    color: "#64748b",
+  },
+  pdfError: {
+    padding: 20,
+    color: "#ef4444",
+  },
+  pdfPageInfo: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 8,
+    textAlign: "center",
   },
   pdfFallback: {
     textAlign: "center",
