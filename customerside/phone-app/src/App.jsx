@@ -144,11 +144,9 @@ export default function App() {
   if (showSplash) {
     return (
       <div style={styles.splashWrap}>
-        <div style={styles.splashContent}>
-          <div style={styles.splashIcon}>📱</div>
-          <h1 style={styles.splashTitle}>PrintConnect</h1>
-          <p style={styles.splashSubtitle}>Upload & Print Service</p>
-          <div style={styles.loader}></div>
+        <div className="loader">
+          <span className="loader-text">loading</span>
+          <span className="load"></span>
         </div>
       </div>
     );
