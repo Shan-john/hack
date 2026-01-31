@@ -1,9 +1,11 @@
 {
   "uploads": [
     {
+      "jobId": "JOB_1769852277639_abc123",
       "username": "Shan",
       "userId": "345675",
       "timestamp": "2026-01-31T09:37:57.768Z",
+      "status": "printed",
       "fileCount": 1,
       "files": [
         {
@@ -13,12 +15,17 @@
           "mimeType": "image/jpeg",
           "uploadedAt": "2026-01-31T09:37:57.769Z"
         }
-      ]
+      ],
+      "approvedAt": "2026-01-31T10:46:50.015Z",
+      "printedAt": "2026-01-31T10:47:00.435Z",
+      "printerIp": "192.168.1.100"
     },
     {
+      "jobId": "JOB_1769852416654_xyz789",
       "username": "Sj",
       "userId": "178718",
       "timestamp": "2026-01-31T09:40:16.680Z",
+      "status": "pending",
       "fileCount": 1,
       "files": [
         {
