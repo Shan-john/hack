@@ -1,4 +1,8 @@
 import { useState, useEffect } from "react";
+import { Document, Page, pdfjs } from 'react-pdf';
+
+// Configure PDF worker to use CDN (reliable for Vite)
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export default function App() {
   const [username, setUsername] = useState("");
@@ -9,11 +13,16 @@ export default function App() {
   const [previewFile, setPreviewFile] = useState(null); // For file preview modal
   const [showPayment, setShowPayment] = useState(false); // For payment page
   const [uploadedFileCount, setUploadedFileCount] = useState(0);
+  const [numPages, setNumPages] = useState(null);
+
+  function onDocumentLoadSuccess({ numPages }) {
+    setNumPages(numPages);
+  }
 
   // Generate random ID on mount
   useEffect(() => {
     setUserId(Math.floor(Math.random() * 1000000));
-    
+
     // Hide splash screen after 2.5 seconds
     const timer = setTimeout(() => {
       setShowSplash(false);
@@ -24,7 +33,7 @@ export default function App() {
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
-    
+
     // Create file objects with preview URLs for images
     const newFiles = files.map((file) => ({
       file,
@@ -111,107 +120,6 @@ export default function App() {
     );
   }
 
-  // Payment Page
-  if (showPayment) {
-    const handleRazorpayPayment = () => {
-      // Calculate amount (₹10 per file)
-      const amountPerFile = 10;
-      const totalAmount = uploadedFileCount * amountPerFile;
-
-      const options = {
-        key: "rzp_test_YOUR_KEY_ID", // Replace with your Razorpay Key ID
-        amount: totalAmount * 100, // Amount in paise (₹10 = 1000 paise)
-        currency: "INR",
-        name: "File Upload Service",
-        description: `Payment for ${uploadedFileCount} file(s)`,
-        image: "https://your-logo-url.com/logo.png", // Optional: Your logo
-        handler: function (response) {
-          // Payment successful
-          alert(`Payment Successful! Payment ID: ${response.razorpay_payment_id}`);
-          console.log("Payment Response:", response);
-          setShowPayment(false);
-        },
-        prefill: {
-          name: username || "Customer",
-          email: "customer@example.com",
-          contact: "9999999999",
-        },
-        notes: {
-          file_count: uploadedFileCount,
-          user_id: userId,
-        },
-        theme: {
-          color: "#667eea",
-        },
-        modal: {
-          ondismiss: function() {
-            alert("Payment cancelled");
-          }
-        }
-      };
-
-      // Check if Razorpay is loaded
-      if (typeof window.Razorpay === 'undefined') {
-        alert("Razorpay SDK not loaded. Please refresh the page and try again.");
-        return;
-      }
-
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
-    };
-
-    return (
-      <div style={styles.wrap}>
-        <div style={styles.card}>
-          <div style={styles.successIcon}>✅</div>
-          <h1 style={styles.title}>Upload Successful!</h1>
-          <p style={styles.subtitle}>
-            {uploadedFileCount} file(s) uploaded successfully
-          </p>
-
-          <div style={styles.paymentSection}>
-            <h2 style={styles.paymentTitle}>Select Payment Method</h2>
-            <p style={styles.paymentAmount}>
-              Amount: ₹{uploadedFileCount * 10} ({uploadedFileCount} × ₹10)
-            </p>
-            
-            <button 
-              onClick={() => {
-                alert("Cash payment selected. Please pay ₹" + (uploadedFileCount * 10) + " at the counter.");
-                setShowPayment(false);
-              }}
-              style={styles.paymentBtn}
-            >
-              <span style={styles.paymentIcon}>💵</span>
-              <div style={styles.paymentBtnContent}>
-                <div style={styles.paymentBtnTitle}>Cash Payment</div>
-                <div style={styles.paymentBtnDesc}>Pay ₹{uploadedFileCount * 10} at the counter</div>
-              </div>
-            </button>
-
-            <button 
-              onClick={handleRazorpayPayment}
-              style={styles.paymentBtn}
-            >
-              <span style={styles.paymentIcon}>💳</span>
-              <div style={styles.paymentBtnContent}>
-                <div style={styles.paymentBtnTitle}>Razorpay</div>
-                <div style={styles.paymentBtnDesc}>Pay ₹{uploadedFileCount * 10} online securely</div>
-              </div>
-            </button>
-
-            <button 
-              onClick={() => setShowPayment(false)}
-              style={styles.backToUploadBtn}
-            >
-              ← Back to Upload
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Main Upload Page
   return (
     <div style={styles.wrap}>
@@ -245,7 +153,7 @@ export default function App() {
             </h3>
             {selectedFiles.map((fileObj) => (
               <div key={fileObj.id} style={styles.fileItem}>
-                <div 
+                <div
                   onClick={() => setPreviewFile(fileObj)}
                   style={{
                     display: "flex",
@@ -291,13 +199,13 @@ export default function App() {
       {previewFile && (
         <div style={styles.modalOverlay} onClick={() => setPreviewFile(null)}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <button 
-              onClick={() => setPreviewFile(null)} 
+            <button
+              onClick={() => setPreviewFile(null)}
               style={styles.modalClose}
             >
               ✕
             </button>
-            
+
             <h3 style={styles.modalTitle}>{previewFile.file.name}</h3>
             <p style={styles.modalSize}>
               {(previewFile.file.size / 1024).toFixed(2)} KB • {previewFile.file.type}
@@ -312,12 +220,28 @@ export default function App() {
                 style={styles.modalImage}
               />
             ) : (previewFile.file.type === "application/pdf" || previewFile.file.name.toLowerCase().endsWith(".pdf")) ? (
-              // PDF preview using embed (better for mobile)
-              <embed
-                src={URL.createObjectURL(previewFile.file)}
-                type="application/pdf"
-                style={styles.modalPdf}
-              />
+              // PDF preview using react-pdf (Works on Mobile!)
+              <div style={styles.pdfContainer}>
+                <Document
+                  file={previewFile.file}
+                  onLoadSuccess={onDocumentLoadSuccess}
+                  loading={<div style={styles.pdfLoading}>Loading PDF...</div>}
+                  error={<div style={styles.pdfError}>Failed to render PDF.</div>}
+                >
+                  {numPages && Array.from(new Array(numPages), (el, index) => (
+                    <div key={`page_${index + 1}`} style={styles.pdfPageWrapper}>
+                      <Page
+                        pageNumber={index + 1}
+                        width={Math.min(window.innerWidth - 60, 600)}
+                        renderTextLayer={false}
+                        renderAnnotationLayer={false}
+                        className="pdf-page"
+                      />
+                    </div>
+                  ))}
+                </Document>
+                {numPages && <p style={styles.pdfPageInfo}>{numPages} Pages</p>}
+              </div>
             ) : (
               // Other file types
               <div style={styles.modalFileIcon}>
@@ -406,7 +330,7 @@ const styles = {
     margin: "0 auto",
     animation: "spin 1s linear infinite",
   },
-  
+
   // Main Wrap Styles
   wrap: {
     minHeight: "100vh",
@@ -437,7 +361,7 @@ const styles = {
     margin: "auto",
     border: "1px solid rgba(255, 255, 255, 0.3)",
   },
-  
+
   title: {
     fontSize: 26,
     fontWeight: 700,
@@ -454,7 +378,7 @@ const styles = {
     marginTop: 0,
     fontWeight: 500,
   },
-  
+
   // Form Elements
   input: {
     width: "100%",
@@ -489,7 +413,7 @@ const styles = {
   fileInput: {
     display: "none",
   },
-  
+
   // File List
   fileList: {
     marginBottom: 12,
@@ -565,7 +489,7 @@ const styles = {
     color: "#ffffff",
     boxShadow: "0 2px 8px rgba(255, 107, 107, 0.3)",
   },
-  
+
   // Send Button
   sendBtn: {
     width: "100%",
@@ -593,85 +517,7 @@ const styles = {
     wordBreak: "break-word",
     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
-  
-  // Payment Page Styles
-  successIcon: {
-    fontSize: 80,
-    textAlign: "center",
-    marginBottom: 16,
-    filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.1))",
-  },
-  paymentSection: {
-    marginTop: 24,
-  },
-  paymentTitle: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: "#ffffff",
-    textAlign: "center",
-    marginBottom: 20,
-    marginTop: 0,
-    textShadow: "0 1px 3px rgba(0,0,0,0.2)",
-  },
-  paymentAmount: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: "#ffffff",
-    textAlign: "center",
-    marginBottom: 20,
-    marginTop: 0,
-    background: "rgba(255, 255, 255, 0.2)",
-    padding: "12px 20px",
-    borderRadius: 12,
-    border: "2px solid rgba(255, 255, 255, 0.3)",
-  },
-  paymentBtn: {
-    width: "100%",
-    padding: "16px 20px",
-    marginBottom: 12,
-    background: "rgba(255, 255, 255, 0.95)",
-    border: "2px solid rgba(255, 255, 255, 0.5)",
-    borderRadius: 16,
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    display: "flex",
-    alignItems: "center",
-    gap: 16,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-  },
-  paymentIcon: {
-    fontSize: 40,
-    flexShrink: 0,
-  },
-  paymentBtnContent: {
-    textAlign: "left",
-    flex: 1,
-  },
-  paymentBtnTitle: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: "#1e293b",
-    marginBottom: 4,
-  },
-  paymentBtnDesc: {
-    fontSize: 13,
-    color: "#64748b",
-    fontWeight: 500,
-  },
-  backToUploadBtn: {
-    width: "100%",
-    padding: 12,
-    marginTop: 16,
-    background: "rgba(255, 255, 255, 0.2)",
-    border: "2px solid rgba(255, 255, 255, 0.3)",
-    borderRadius: 12,
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.2s ease",
-  },
-  
+
   // Preview/History Page Styles
   emptyState: {
     textAlign: "center",
@@ -709,7 +555,7 @@ const styles = {
     color: "#475569",
     padding: "4px 0",
   },
-  
+
   // File Preview Modal Styles
   modalOverlay: {
     position: "fixed",
@@ -787,6 +633,38 @@ const styles = {
     border: "none",
     borderRadius: 8,
     background: "#f1f5f9",
+  },
+  pdfContainer: {
+    width: "100%",
+    flex: 1,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    background: "#f1f5f9",
+    borderRadius: 12,
+    padding: "20px 0",
+  },
+  pdfPageWrapper: {
+    marginBottom: 16,
+    display: 'flex',
+    justifyContent: 'center',
+    width: '100%',
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", // Paper shadow
+  },
+  pdfLoading: {
+    padding: 20,
+    color: "#64748b",
+  },
+  pdfError: {
+    padding: 20,
+    color: "#ef4444",
+  },
+  pdfPageInfo: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 8,
+    textAlign: "center",
   },
   pdfFallback: {
     textAlign: "center",
