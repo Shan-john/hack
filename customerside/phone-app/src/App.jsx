@@ -303,18 +303,26 @@ export default function App() {
               {(previewFile.file.size / 1024).toFixed(2)} KB • {previewFile.file.type}
             </p>
 
+
             {previewFile.preview ? (
-              // Image preview only
+              // Image preview
               <img
                 src={previewFile.preview}
                 alt={previewFile.file.name}
                 style={styles.modalImage}
               />
+            ) : (previewFile.file.type === "application/pdf" || previewFile.file.name.toLowerCase().endsWith(".pdf")) ? (
+              // PDF preview using embed (better for mobile)
+              <embed
+                src={URL.createObjectURL(previewFile.file)}
+                type="application/pdf"
+                style={styles.modalPdf}
+              />
             ) : (
-              // Other file types - no preview
+              // Other file types
               <div style={styles.modalFileIcon}>
                 <div style={styles.fileIconLarge}>
-                  {previewFile.file.type === "application/pdf" ? "📄" : "📎"}
+                  {(previewFile.file.type === "application/pdf" || previewFile.file.name.toLowerCase().endsWith(".pdf")) ? "📄" : "📎"}
                 </div>
                 <p style={styles.fileType}>
                   {previewFile.file.type || "Unknown type"}
@@ -330,6 +338,27 @@ export default function App() {
     </div>
   );
 }
+
+// Helper function for status badge styling
+const getStatusBadgeStyle = (status) => {
+  const baseStyle = {
+    marginLeft: 8,
+    padding: "4px 8px",
+    borderRadius: 6,
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: "0.5px",
+  };
+
+  const statusColors = {
+    pending: { background: "#fef3c7", color: "#92400e" },
+    approved: { background: "#d1fae5", color: "#065f46" },
+    printed: { background: "#dbeafe", color: "#1e40af" },
+    rejected: { background: "#fee2e2", color: "#991b1b" },
+  };
+
+  return { ...baseStyle, ...(statusColors[status] || statusColors.pending) };
+};
 
 const styles = {
   // Splash Screen Styles
@@ -699,12 +728,15 @@ const styles = {
   modalContent: {
     background: "#ffffff",
     borderRadius: 20,
-    padding: "24px",
-    maxWidth: "90vw",
-    maxHeight: "90vh",
-    overflow: "auto",
+    padding: "16px",
+    width: "95vw",
+    maxWidth: "800px",
+    height: "90vh",
+    display: "flex",
+    flexDirection: "column",
     position: "relative",
     boxSizing: "border-box",
+    overflow: "hidden", // Prevent double scrollbars
   },
   modalClose: {
     position: "absolute",
@@ -722,6 +754,7 @@ const styles = {
     justifyContent: "center",
     fontWeight: "bold",
     color: "#dc2626",
+    zIndex: 10,
   },
   modalTitle: {
     fontSize: 16,
@@ -731,26 +764,29 @@ const styles = {
     marginTop: 0,
     paddingRight: 40,
     wordBreak: "break-word",
+    flexShrink: 0,
   },
   modalSize: {
     fontSize: 13,
     color: "#64748b",
     marginBottom: 16,
     marginTop: 0,
+    flexShrink: 0,
   },
   modalImage: {
     width: "100%",
-    height: "auto",
-    maxHeight: "70vh",
+    height: "100%",
     objectFit: "contain",
-    borderRadius: 12,
-    border: "2px solid #e2e8f0",
+    borderRadius: 8,
+    flex: 1,
+    minHeight: 0,
   },
   modalPdf: {
     width: "100%",
-    height: "70vh",
-    border: "2px solid #e2e8f0",
-    borderRadius: 12,
+    flex: 1,
+    border: "none",
+    borderRadius: 8,
+    background: "#f1f5f9",
   },
   pdfFallback: {
     textAlign: "center",
