@@ -9,6 +9,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState("username"); // username, upload, payment
   const [uploadedFileCount, setUploadedFileCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null); // For preview modal
 
   useEffect(() => {
     setUserId(Math.floor(Math.random() * 1000000));
@@ -28,12 +29,44 @@ export default function App() {
       id: Math.random().toString(36).substr(2, 9),
       status: "pending", // pending, uploading, completed
       progress: 0,
+      copies: 1, // Number of copies
+      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
     }));
     setSelectedFiles((prev) => [...prev, ...newFiles]);
   };
 
+  const updateCopies = (fileId, copies) => {
+    const count = Math.max(1, Math.min(99, parseInt(copies) || 1));
+    setSelectedFiles((prev) => prev.map(f => 
+      f.id === fileId ? { ...f, copies: count } : f
+    ));
+  };
+
+  const openPreview = (fileObj) => {
+    if (fileObj.file.type.startsWith("image/") || fileObj.file.type === "application/pdf") {
+      setPreviewFile({
+        name: fileObj.file.name,
+        type: fileObj.file.type,
+        url: URL.createObjectURL(fileObj.file)
+      });
+    }
+  };
+
+  const closePreview = () => {
+    if (previewFile?.url) {
+      URL.revokeObjectURL(previewFile.url);
+    }
+    setPreviewFile(null);
+  };
+
   const removeFile = (fileId) => {
-    setSelectedFiles((prev) => prev.filter((f) => f.id !== fileId));
+    setSelectedFiles((prev) => {
+      const fileToRemove = prev.find(f => f.id === fileId);
+      if (fileToRemove?.previewUrl) {
+        URL.revokeObjectURL(fileToRemove.previewUrl);
+      }
+      return prev.filter((f) => f.id !== fileId);
+    });
   };
 
   const handleDragOver = (e) => {
@@ -124,34 +157,36 @@ export default function App() {
   // Username Page
   if (currentPage === "username") {
     return (
-      <div style={styles.pageWrap}>
-        <div style={styles.card}>
-          <div style={styles.cardHeader}>
-            <h1 style={styles.cardTitle}>Welcome</h1>
-            <p style={styles.cardSubtitle}>Please enter your name to continue</p>
-          </div>
+      <div style={styles.pageWrap} className="desktop-layout">
+        <div style={{...styles.card, justifyContent: "center", alignItems: "center"}} className="responsive-card">
+          <div style={{width: "100%", maxWidth: 320}}>
+            <div style={{...styles.cardHeader, textAlign: "center"}}>
+              <h1 style={styles.cardTitle}>Welcome</h1>
+              <p style={styles.cardSubtitle}>Please enter your name to continue</p>
+            </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.inputLabel}>Your Name</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your name"
-              style={styles.input}
-            />
-          </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.inputLabel}>Your Name</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your name"
+                style={styles.input}
+              />
+            </div>
 
-          <button
-            onClick={() => username.trim() && setCurrentPage("upload")}
-            disabled={!username.trim()}
-            style={{
-              ...styles.primaryBtn,
-              opacity: username.trim() ? 1 : 0.5,
-            }}
-          >
-            Continue
-          </button>
+            <button
+              onClick={() => username.trim() && setCurrentPage("upload")}
+              disabled={!username.trim()}
+              style={{
+                ...styles.primaryBtn,
+                opacity: username.trim() ? 1 : 0.5,
+              }}
+            >
+              Continue
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -160,8 +195,8 @@ export default function App() {
   // Payment Page
   if (currentPage === "payment") {
     return (
-      <div style={styles.pageWrap}>
-        <div style={styles.card}>
+      <div style={styles.pageWrap} className="desktop-layout">
+        <div style={styles.card} className="responsive-card">
           <div style={styles.successIcon}>✅</div>
           <h1 style={styles.cardTitle}>Upload Successful!</h1>
           <p style={styles.cardSubtitle}>
@@ -207,8 +242,8 @@ export default function App() {
 
   // Upload Page (Main)
   return (
-    <div style={styles.pageWrap}>
-      <div style={styles.card}>
+    <div style={styles.pageWrap} className="desktop-layout">
+      <div style={styles.card} className="responsive-card">
         <button onClick={() => setCurrentPage("username")} style={styles.closeBtn}>
           ✕
         </button>
@@ -260,7 +295,20 @@ export default function App() {
 
             {selectedFiles.map((fileObj) => (
               <div key={fileObj.id} style={styles.fileItem}>
-                <span style={styles.fileIcon}>{getFileIcon(fileObj.file.name)}</span>
+                {/* Preview thumbnail */}
+                <div 
+                  style={styles.fileThumbnail}
+                  onClick={() => openPreview(fileObj)}
+                >
+                  {fileObj.previewUrl ? (
+                    <img src={fileObj.previewUrl} alt="" style={styles.thumbnailImg} />
+                  ) : (
+                    <span style={styles.fileIcon}>{getFileIcon(fileObj.file.name)}</span>
+                  )}
+                  {(fileObj.file.type.startsWith("image/") || fileObj.file.type === "application/pdf") && (
+                    <div style={styles.previewOverlay}>👁️</div>
+                  )}
+                </div>
                 <div style={styles.fileInfo}>
                   <div style={styles.fileName}>{fileObj.file.name}</div>
                   <div style={styles.fileMeta}>
@@ -268,6 +316,27 @@ export default function App() {
                     {fileObj.status === "uploading" && ` • ${Math.round((fileObj.file.size / 1024 / 1024) * (100 - fileObj.progress) / 100)} sec left`}
                     {fileObj.status === "completed" && " • Completed"}
                   </div>
+                  {/* Copy count */}
+                  {fileObj.status !== "uploading" && (
+                    <div style={styles.copyRow}>
+                      <span style={styles.copyLabel}>Copies:</span>
+                      <button 
+                        style={styles.copyBtn} 
+                        onClick={() => updateCopies(fileObj.id, fileObj.copies - 1)}
+                      >−</button>
+                      <input 
+                        type="number" 
+                        value={fileObj.copies} 
+                        onChange={(e) => updateCopies(fileObj.id, e.target.value)}
+                        style={styles.copyInput}
+                        min="1" max="99"
+                      />
+                      <button 
+                        style={styles.copyBtn} 
+                        onClick={() => updateCopies(fileObj.id, fileObj.copies + 1)}
+                      >+</button>
+                    </div>
+                  )}
                   {fileObj.status === "uploading" && (
                     <div style={styles.progressBar}>
                       <div style={{ ...styles.progressFill, width: `${fileObj.progress}%` }} />
@@ -310,6 +379,25 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {previewFile && (
+        <div style={styles.previewModal} onClick={closePreview}>
+          <div style={styles.previewContent} onClick={(e) => e.stopPropagation()}>
+            <button style={styles.previewClose} onClick={closePreview}>✕</button>
+            <h3 style={styles.previewTitle}>{previewFile.name}</h3>
+            {previewFile.type.startsWith("image/") ? (
+              <img src={previewFile.url} alt={previewFile.name} style={styles.previewImage} />
+            ) : (
+              <iframe 
+                src={previewFile.url} 
+                style={styles.previewPdf} 
+                title={previewFile.name}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -317,16 +405,25 @@ export default function App() {
 const styles = {
   // Splash Screen
   splashWrap: {
-    minHeight: "100vh",
-    minHeight: "100dvh",
-    width: "100%",
+    height: "100vh", // Use 100vh as base
+    height: "100dvh", // Full viewport height including mobile URL bars etc
+    width: "100vw",   // Full viewport width
     background: "linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontFamily: "'Inter', -apple-system, sans-serif",
+    position: "fixed", // Guaranteed overlay
+    top: 0,
+    left: 0,
+    zIndex: 9999,
   },
-  splashContent: { textAlign: "center", padding: 20 },
+  splashContent: { 
+    textAlign: "center", 
+    padding: 20,
+    width: "100%",
+    maxWidth: "420px", // Constrain width on larger screens
+  },
   splashIcon: { fontSize: "clamp(48px, 12vw, 64px)", marginBottom: 16 },
   splashTitle: { fontSize: "clamp(24px, 6vw, 28px)", fontWeight: 700, color: "#fff", margin: "0 0 8px" },
   splashSubtitle: { fontSize: "clamp(12px, 3vw, 14px)", color: "rgba(255,255,255,0.8)", margin: 0 },
@@ -338,33 +435,42 @@ const styles = {
     animation: "spin 1s linear infinite",
   },
 
-  // Page Wrapper - FULL SCREEN
+  // Page Wrapper - Centered on Desktop, Full on Mobile
   pageWrap: {
-    height: "100vh",
     height: "100dvh",
     width: "100vw",
     background: "linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 50%, #f5f3ff 100%)",
     display: "flex",
     flexDirection: "column",
+    alignItems: "center",     // Center horizontally
+    justifyContent: "center", // Center vertically
     fontFamily: "'Inter', -apple-system, sans-serif",
     boxSizing: "border-box",
     overflow: "hidden",
+    padding: 0,
   },
 
-  // Card - FULL SCREEN
+  // Card - Compact with shadow on Mobile, styled on Desktop
   card: {
     flex: 1,
-    width: "100%",
-    height: "100%",
+    width: "calc(100% - 24px)", // Compact with margin
+    maxWidth: "480px",
+    height: "calc(100% - 24px)",
+    maxHeight: "calc(100dvh - 24px)",
+    margin: "12px",
     background: "#ffffff",
-    borderRadius: 0,
+    borderRadius: 20,
     padding: "clamp(16px, 4vw, 24px)",
-    paddingTop: "clamp(20px, 5vw, 32px)",
+    paddingTop: "clamp(20px, 5vw, 28px)",
+    
+    // Mobile shadow
+    boxShadow: "0 10px 40px -10px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)",
+    
+    display: "flex",
+    flexDirection: "column",
     boxSizing: "border-box",
     position: "relative",
     overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
   },
   closeBtn: {
     position: "absolute",
@@ -611,5 +717,126 @@ const styles = {
   paymentBtnDesc: { 
     fontSize: "clamp(10px, 2.5vw, 12px)", 
     color: "#64748b" 
+  },
+
+  // Thumbnail & Preview
+  fileThumbnail: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: "#f1f5f9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    cursor: "pointer",
+    flexShrink: 0,
+  },
+  thumbnailImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  previewOverlay: {
+    position: "absolute",
+    inset: 0,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0,
+    transition: "opacity 0.2s",
+    fontSize: 16,
+  },
+
+  // Copy controls
+  copyRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+  },
+  copyLabel: {
+    fontSize: 11,
+    color: "#64748b",
+  },
+  copyBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    border: "1px solid #e2e8f0",
+    background: "#fff",
+    color: "#7c3aed",
+    fontWeight: 600,
+    fontSize: 14,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  copyInput: {
+    width: 36,
+    height: 24,
+    borderRadius: 6,
+    border: "1px solid #e2e8f0",
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: 600,
+  },
+
+  // Preview Modal
+  previewModal: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.9)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+    padding: 16,
+  },
+  previewContent: {
+    background: "#fff",
+    borderRadius: 16,
+    maxWidth: "95vw",
+    maxHeight: "95vh",
+    overflow: "hidden",
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+  },
+  previewClose: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: "50%",
+    border: "none",
+    background: "#f1f5f9",
+    cursor: "pointer",
+    fontSize: 16,
+    zIndex: 10,
+  },
+  previewTitle: {
+    padding: "12px 48px 12px 16px",
+    margin: 0,
+    fontSize: 14,
+    fontWeight: 600,
+    borderBottom: "1px solid #e2e8f0",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  previewImage: {
+    maxWidth: "90vw",
+    maxHeight: "80vh",
+    objectFit: "contain",
+  },
+  previewPdf: {
+    width: "90vw",
+    height: "80vh",
+    border: "none",
   },
 };

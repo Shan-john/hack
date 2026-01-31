@@ -39,7 +39,9 @@ export default function App() {
       const res = await fetch(`http://${serverIp}:3000/uploads`);
       if (res.ok) {
         const data = await res.json();
-        setJobs(data.uploads || []);
+        // Reverse order to show newest first
+        const reversedJobs = (data.uploads || []).reverse();
+        setJobs(reversedJobs);
       }
     } catch (e) {
       console.error("Error fetching jobs:", e);
