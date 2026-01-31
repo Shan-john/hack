@@ -117,10 +117,14 @@ app.post("/print", upload.array("files", 10), (req, res) => {
 // Get upload history
 app.get("/uploads", (req, res) => {
   try {
-    const logData = JSON.parse(fs.readFileSync(uploadsLogPath, 'utf8'));
+    const fileContent = fs.readFileSync(uploadsLogPath, 'utf8');
+    if (!fileContent.trim()) {
+      return res.json({ uploads: [] });
+    }
+    const logData = JSON.parse(fileContent);
     res.json(logData);
   } catch (error) {
-    console.error("❌ Error reading uploads.json:", error);
+    console.error("❌ Error reading uploads.json:", error.message);
     res.json({ uploads: [] });
   }
 });
@@ -316,6 +320,68 @@ app.post("/update-printer-ip", (req, res) => {
     printerIp,
     note: "IP updated for current session. Restart server to use default."
   });
+});
+
+// Callback from printer - confirms print and deletes file (keeps record)
+app.post("/print-complete", (req, res) => {
+  const { jobId, fileName, username, success } = req.body;
+
+  console.log(`\n📬 Print confirmation received from printer:`);
+  console.log(`   Job ID: ${jobId}`);
+  console.log(`   File: ${fileName}`);
+  console.log(`   User: ${username}`);
+
+  if (!jobId) {
+    return res.status(400).json({ error: "Job ID required" });
+  }
+
+  try {
+    // Read the uploads log with error handling
+    let logData = { uploads: [] };
+    try {
+      const fileContent = fs.readFileSync(uploadsLogPath, 'utf8');
+      if (fileContent.trim()) {
+        logData = JSON.parse(fileContent);
+      }
+    } catch (parseError) {
+      console.log(`   ⚠️  Could not read uploads.json, using empty data`);
+    }
+
+    const job = logData.uploads.find(u => u.jobId === jobId);
+
+    if (!job) {
+      console.log(`   ⚠️  Job not found in log`);
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    // Delete the printed files from storage
+    let deletedCount = 0;
+    for (const file of job.files) {
+      const filePath = path.join(uploadDir, file.savedName);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        deletedCount++;
+        console.log(`   🗑️  Deleted: ${file.originalName}`);
+      }
+    }
+
+    // Mark files as deleted in the record (but keep the job record)
+    job.filesDeleted = true;
+    job.filesDeletedAt = new Date().toISOString();
+    fs.writeFileSync(uploadsLogPath, JSON.stringify(logData, null, 2));
+    
+    console.log(`   ✅ Files deleted (${deletedCount}), record kept\n`);
+
+    res.json({ 
+      success: true, 
+      message: `Deleted ${deletedCount} file(s), record kept`,
+      jobId 
+    });
+
+  } catch (error) {
+    console.error(`   ❌ Error processing print confirmation:`, error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.listen(3000, () => {

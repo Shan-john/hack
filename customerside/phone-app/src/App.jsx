@@ -1,715 +1,615 @@
 import { useState, useEffect } from "react";
-import { Document, Page, pdfjs } from 'react-pdf';
-
-// Configure PDF worker to use CDN (reliable for Vite)
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export default function App() {
   const [username, setUsername] = useState("");
   const [userId, setUserId] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [status, setStatus] = useState("");
+  const [uploadProgress, setUploadProgress] = useState({});
   const [showSplash, setShowSplash] = useState(true);
-  const [previewFile, setPreviewFile] = useState(null); // For file preview modal
-  const [showPayment, setShowPayment] = useState(false); // For payment page
+  const [currentPage, setCurrentPage] = useState("username"); // username, upload, payment
   const [uploadedFileCount, setUploadedFileCount] = useState(0);
-  const [numPages, setNumPages] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  function onDocumentLoadSuccess({ numPages }) {
-    setNumPages(numPages);
-  }
-
-  // Generate random ID on mount
   useEffect(() => {
     setUserId(Math.floor(Math.random() * 1000000));
-
-    // Hide splash screen after 2.5 seconds
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 2500);
-
+    const timer = setTimeout(() => setShowSplash(false), 2000);
     return () => clearTimeout(timer);
   }, []);
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
+    addFiles(files);
+    e.target.value = "";
+  };
 
-    // Create file objects with preview URLs for images
+  const addFiles = (files) => {
     const newFiles = files.map((file) => ({
       file,
       id: Math.random().toString(36).substr(2, 9),
-      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      status: "pending", // pending, uploading, completed
+      progress: 0,
     }));
-
     setSelectedFiles((prev) => [...prev, ...newFiles]);
-    e.target.value = ""; // Reset input to allow selecting same file again
   };
 
   const removeFile = (fileId) => {
-    setSelectedFiles((prev) => {
-      const fileToRemove = prev.find((f) => f.id === fileId);
-      if (fileToRemove?.preview) {
-        URL.revokeObjectURL(fileToRemove.preview);
-      }
-      return prev.filter((f) => f.id !== fileId);
-    });
+    setSelectedFiles((prev) => prev.filter((f) => f.id !== fileId));
   };
 
-  const sendToLaptop = async () => {
-    if (!username.trim()) {
-      setStatus("❌ Please enter your name");
-      return;
-    }
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
 
-    if (selectedFiles.length === 0) {
-      setStatus("❌ Please select at least one file");
-      return;
-    }
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    addFiles(files);
+  };
+
+  const uploadFiles = async () => {
+    if (selectedFiles.length === 0) return;
 
     try {
       const serverIp = window.location.hostname;
       const url = `http://${serverIp}:3000/print`;
 
+      // Simulate progress for each file
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const fileObj = selectedFiles[i];
+        setSelectedFiles(prev => prev.map(f => 
+          f.id === fileObj.id ? { ...f, status: "uploading" } : f
+        ));
+
+        // Simulate upload progress
+        for (let p = 0; p <= 100; p += 20) {
+          await new Promise(r => setTimeout(r, 100));
+          setSelectedFiles(prev => prev.map(f => 
+            f.id === fileObj.id ? { ...f, progress: p } : f
+          ));
+        }
+
+        setSelectedFiles(prev => prev.map(f => 
+          f.id === fileObj.id ? { ...f, status: "completed", progress: 100 } : f
+        ));
+      }
+
+      // Actually upload all files
       const formData = new FormData();
       formData.append("name", username);
       formData.append("id", userId);
+      selectedFiles.forEach((fileObj) => formData.append("files", fileObj.file));
 
-      selectedFiles.forEach((fileObj) => {
-        formData.append("files", fileObj.file);
-      });
-
-      console.log("Sending to:", url);
-      console.log("Username:", username);
-      console.log("User ID:", userId);
-      console.log("File count:", selectedFiles.length);
-
-      const res = await fetch(url, {
-        method: "POST",
-        body: formData,
-      });
-
-      console.log("Response status:", res.status);
-
+      const res = await fetch(url, { method: "POST", body: formData });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
-      const data = await res.json();
-      console.log("Response data:", data);
-
-      // Success - redirect to payment page
       setUploadedFileCount(selectedFiles.length);
-      setShowPayment(true);
+      setCurrentPage("payment");
       setSelectedFiles([]);
-      setUsername("");
     } catch (e) {
       console.error("Error:", e);
-      setStatus(`❌ Error: ${e.message}`);
+      alert(`Upload failed: ${e.message}`);
     }
   };
 
-  // Splash Screen Component
+  const getFileIcon = (fileName) => {
+    const ext = fileName.split('.').pop().toLowerCase();
+    if (['pdf'].includes(ext)) return "📄";
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return "🖼️";
+    if (['doc', 'docx'].includes(ext)) return "📝";
+    if (['fig', 'ai', 'psd'].includes(ext)) return "🎨";
+    return "📎";
+  };
+
+  // Splash Screen
   if (showSplash) {
     return (
       <div style={styles.splashWrap}>
         <div style={styles.splashContent}>
           <div style={styles.splashIcon}>📱</div>
-          <h1 style={styles.splashTitle}>File Upload</h1>
-          <p style={styles.splashSubtitle}>Phone to Laptop Transfer</p>
+          <h1 style={styles.splashTitle}>PrintConnect</h1>
+          <p style={styles.splashSubtitle}>Upload & Print Service</p>
           <div style={styles.loader}></div>
         </div>
       </div>
     );
   }
 
-  // Main Upload Page
+  // Username Page
+  if (currentPage === "username") {
+    return (
+      <div style={styles.pageWrap}>
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <h1 style={styles.cardTitle}>Welcome</h1>
+            <p style={styles.cardSubtitle}>Please enter your name to continue</p>
+          </div>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.inputLabel}>Your Name</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your name"
+              style={styles.input}
+            />
+          </div>
+
+          <button
+            onClick={() => username.trim() && setCurrentPage("upload")}
+            disabled={!username.trim()}
+            style={{
+              ...styles.primaryBtn,
+              opacity: username.trim() ? 1 : 0.5,
+            }}
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Payment Page
+  if (currentPage === "payment") {
+    return (
+      <div style={styles.pageWrap}>
+        <div style={styles.card}>
+          <div style={styles.successIcon}>✅</div>
+          <h1 style={styles.cardTitle}>Upload Successful!</h1>
+          <p style={styles.cardSubtitle}>
+            {uploadedFileCount} file(s) uploaded successfully
+          </p>
+
+          <div style={styles.paymentAmount}>
+            ₹{uploadedFileCount * 10}
+            <span style={styles.paymentAmountSub}>({uploadedFileCount} × ₹10)</span>
+          </div>
+
+          <h3 style={styles.sectionTitle}>Select Payment Method</h3>
+
+          <button
+            onClick={() => {
+              alert(`Please pay ₹${uploadedFileCount * 10} at the counter`);
+              setCurrentPage("username");
+              setUsername("");
+            }}
+            style={styles.paymentBtn}
+          >
+            <span style={styles.paymentBtnIcon}>💵</span>
+            <div>
+              <div style={styles.paymentBtnTitle}>Cash Payment</div>
+              <div style={styles.paymentBtnDesc}>Pay at the counter</div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => alert("Razorpay coming soon!")}
+            style={styles.paymentBtn}
+          >
+            <span style={styles.paymentBtnIcon}>💳</span>
+            <div>
+              <div style={styles.paymentBtnTitle}>Pay Online</div>
+              <div style={styles.paymentBtnDesc}>UPI, Card, NetBanking</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Upload Page (Main)
   return (
-    <div style={styles.wrap}>
+    <div style={styles.pageWrap}>
       <div style={styles.card}>
-        <h1 style={styles.title}>📱 File Upload</h1>
-        <p style={styles.subtitle}>Send files from your phone to laptop</p>
+        <button onClick={() => setCurrentPage("username")} style={styles.closeBtn}>
+          ✕
+        </button>
 
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Enter your name"
-          style={styles.input}
-        />
+        <div style={styles.cardHeader}>
+          <h1 style={styles.cardTitle}>Upload and attach files</h1>
+          <p style={styles.cardSubtitle}>Files will be sent for printing</p>
+        </div>
 
-        <label style={styles.fileLabel}>
-          📎 Select Files
-          <input
-            type="file"
-            multiple
-            accept=".pdf,.png,.jpg,.jpeg,.gif"
-            onChange={handleFileSelect}
-            style={styles.fileInput}
-          />
-        </label>
+        {/* Drag & Drop Area */}
+        <div
+          style={{
+            ...styles.dropZone,
+            borderColor: isDragging ? "#7c3aed" : "#e2e8f0",
+            backgroundColor: isDragging ? "#f5f3ff" : "#fafafa",
+          }}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <div style={styles.dropIcon}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+          </div>
+          <label style={styles.dropLabel}>
+            <span style={styles.dropLink}>Click to Upload</span> or drag and drop
+            <input
+              type="file"
+              multiple
+              accept=".pdf,.png,.jpg,.jpeg,.gif,.doc,.docx"
+              onChange={handleFileSelect}
+              style={{ display: "none" }}
+            />
+          </label>
+          <p style={styles.dropHint}>(Max. File size: 25 MB)</p>
+        </div>
 
+        {/* Files List */}
         {selectedFiles.length > 0 && (
-          <div style={styles.fileList}>
-            <h3 style={styles.fileListTitle}>
-              Selected Files ({selectedFiles.length})
-            </h3>
+          <div style={styles.filesList}>
+            <p style={styles.filesCount}>
+              {selectedFiles.filter(f => f.status === "uploading").length > 0
+                ? `${selectedFiles.filter(f => f.status === "uploading").length} files uploading...`
+                : `${selectedFiles.length} file(s) selected`}
+            </p>
+
             {selectedFiles.map((fileObj) => (
               <div key={fileObj.id} style={styles.fileItem}>
-                <div
-                  onClick={() => setPreviewFile(fileObj)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    flex: 1,
-                    cursor: "pointer",
-                  }}
-                >
-                  {fileObj.preview && (
-                    <img
-                      src={fileObj.preview}
-                      alt={fileObj.file.name}
-                      style={styles.thumbnail}
-                    />
-                  )}
-                  <div style={styles.fileInfo}>
-                    <div style={styles.fileName}>{fileObj.file.name}</div>
-                    <div style={styles.fileSize}>
-                      {(fileObj.file.size / 1024).toFixed(2)} KB
-                    </div>
+                <span style={styles.fileIcon}>{getFileIcon(fileObj.file.name)}</span>
+                <div style={styles.fileInfo}>
+                  <div style={styles.fileName}>{fileObj.file.name}</div>
+                  <div style={styles.fileMeta}>
+                    {(fileObj.file.size / (1024 * 1024)).toFixed(1)} MB
+                    {fileObj.status === "uploading" && ` • ${Math.round((fileObj.file.size / 1024 / 1024) * (100 - fileObj.progress) / 100)} sec left`}
+                    {fileObj.status === "completed" && " • Completed"}
                   </div>
+                  {fileObj.status === "uploading" && (
+                    <div style={styles.progressBar}>
+                      <div style={{ ...styles.progressFill, width: `${fileObj.progress}%` }} />
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => removeFile(fileObj.id)}
-                  style={styles.deleteBtn}
-                >
-                  ❌
-                </button>
+                <div style={styles.fileActions}>
+                  {fileObj.status === "uploading" && (
+                    <span style={styles.progressText}>{fileObj.progress}%</span>
+                  )}
+                  <button onClick={() => removeFile(fileObj.id)} style={styles.removeBtn}>
+                    {fileObj.status === "completed" ? "🗑️" : "✕"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        <button onClick={sendToLaptop} style={styles.sendBtn}>
-          Send {selectedFiles.length > 0 && `(${selectedFiles.length})`}
-        </button>
-
-        {status && <p style={styles.status}>{status}</p>}
-      </div>
-
-      {/* File Preview Modal */}
-      {previewFile && (
-        <div style={styles.modalOverlay} onClick={() => setPreviewFile(null)}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setPreviewFile(null)}
-              style={styles.modalClose}
-            >
-              ✕
-            </button>
-
-            <h3 style={styles.modalTitle}>{previewFile.file.name}</h3>
-            <p style={styles.modalSize}>
-              {(previewFile.file.size / 1024).toFixed(2)} KB • {previewFile.file.type}
-            </p>
-
-
-            {previewFile.preview ? (
-              // Image preview
-              <img
-                src={previewFile.preview}
-                alt={previewFile.file.name}
-                style={styles.modalImage}
-              />
-            ) : (previewFile.file.type === "application/pdf" || previewFile.file.name.toLowerCase().endsWith(".pdf")) ? (
-              // PDF preview using react-pdf (Works on Mobile!)
-              <div style={styles.pdfContainer}>
-                <Document
-                  file={previewFile.file}
-                  onLoadSuccess={onDocumentLoadSuccess}
-                  loading={<div style={styles.pdfLoading}>Loading PDF...</div>}
-                  error={<div style={styles.pdfError}>Failed to render PDF.</div>}
-                >
-                  {numPages && Array.from(new Array(numPages), (el, index) => (
-                    <div key={`page_${index + 1}`} style={styles.pdfPageWrapper}>
-                      <Page
-                        pageNumber={index + 1}
-                        width={Math.min(window.innerWidth - 60, 600)}
-                        renderTextLayer={false}
-                        renderAnnotationLayer={false}
-                        className="pdf-page"
-                      />
-                    </div>
-                  ))}
-                </Document>
-                {numPages && <p style={styles.pdfPageInfo}>{numPages} Pages</p>}
-              </div>
-            ) : (
-              // Other file types
-              <div style={styles.modalFileIcon}>
-                <div style={styles.fileIconLarge}>
-                  {(previewFile.file.type === "application/pdf" || previewFile.file.name.toLowerCase().endsWith(".pdf")) ? "📄" : "📎"}
-                </div>
-                <p style={styles.fileType}>
-                  {previewFile.file.type || "Unknown type"}
-                </p>
-                <p style={styles.noPreview}>
-                  Preview not available
-                </p>
-              </div>
-            )}
-          </div>
+        {/* Action Buttons */}
+        <div style={styles.actionButtons}>
+          <button
+            onClick={() => {
+              setSelectedFiles([]);
+              setCurrentPage("username");
+            }}
+            style={styles.cancelBtn}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={uploadFiles}
+            disabled={selectedFiles.length === 0}
+            style={{
+              ...styles.attachBtn,
+              opacity: selectedFiles.length > 0 ? 1 : 0.5,
+            }}
+          >
+            Attach files
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-// Helper function for status badge styling
-const getStatusBadgeStyle = (status) => {
-  const baseStyle = {
-    marginLeft: 8,
-    padding: "4px 8px",
-    borderRadius: 6,
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: "0.5px",
-  };
-
-  const statusColors = {
-    pending: { background: "#fef3c7", color: "#92400e" },
-    approved: { background: "#d1fae5", color: "#065f46" },
-    printed: { background: "#dbeafe", color: "#1e40af" },
-    rejected: { background: "#fee2e2", color: "#991b1b" },
-  };
-
-  return { ...baseStyle, ...(statusColors[status] || statusColors.pending) };
-};
-
 const styles = {
-  // Splash Screen Styles
+  // Splash Screen
   splashWrap: {
     minHeight: "100vh",
-    minWidth: "100vw",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
-    backgroundSize: "200% 200%",
-    animation: "gradientShift 6s ease infinite",
+    minHeight: "100dvh",
+    width: "100%",
+    background: "linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontFamily: "'Inter', -apple-system, sans-serif",
   },
-  splashContent: {
-    textAlign: "center",
-    animation: "fadeIn 0.8s ease-in",
-  },
-  splashIcon: {
-    fontSize: 80,
-    marginBottom: 20,
-    animation: "bounce 1.5s infinite",
-    filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.2))",
-  },
-  splashTitle: {
-    fontSize: 32,
-    fontWeight: 700,
-    color: "#ffffff",
-    marginBottom: 8,
-    marginTop: 0,
-    textShadow: "0 2px 10px rgba(0,0,0,0.2)",
-  },
-  splashSubtitle: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginBottom: 40,
-    marginTop: 0,
-  },
+  splashContent: { textAlign: "center", padding: 20 },
+  splashIcon: { fontSize: "clamp(48px, 12vw, 64px)", marginBottom: 16 },
+  splashTitle: { fontSize: "clamp(24px, 6vw, 28px)", fontWeight: 700, color: "#fff", margin: "0 0 8px" },
+  splashSubtitle: { fontSize: "clamp(12px, 3vw, 14px)", color: "rgba(255,255,255,0.8)", margin: 0 },
   loader: {
-    width: 40,
-    height: 40,
-    border: "4px solid rgba(255, 255, 255, 0.3)",
-    borderTop: "4px solid #ffffff",
+    width: 32, height: 32, margin: "32px auto 0",
+    border: "3px solid rgba(255,255,255,0.3)",
+    borderTopColor: "#fff",
     borderRadius: "50%",
-    margin: "0 auto",
     animation: "spin 1s linear infinite",
   },
 
-  // Main Wrap Styles
-  wrap: {
-    minHeight: "100vh",
-    minWidth: "100vw",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)",
-    backgroundAttachment: "fixed",
-    backgroundSize: "400% 400%",
-    animation: "gradientShift 15s ease infinite",
+  // Page Wrapper - FULL SCREEN
+  pageWrap: {
+    height: "100vh",
+    height: "100dvh",
+    width: "100vw",
+    background: "linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 50%, #f5f3ff 100%)",
     display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    padding: "16px",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    flexDirection: "column",
+    fontFamily: "'Inter', -apple-system, sans-serif",
     boxSizing: "border-box",
-    overflowY: "auto",
-    overflowX: "hidden",
+    overflow: "hidden",
   },
+
+  // Card - FULL SCREEN
   card: {
-    maxWidth: 420,
+    flex: 1,
     width: "100%",
-    background: "rgba(255, 255, 255, 0.15)",
-    backdropFilter: "blur(20px) saturate(180%)",
-    WebkitBackdropFilter: "blur(20px) saturate(180%)",
-    borderRadius: 24,
-    padding: "28px",
-    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.2)",
+    height: "100%",
+    background: "#ffffff",
+    borderRadius: 0,
+    padding: "clamp(16px, 4vw, 24px)",
+    paddingTop: "clamp(20px, 5vw, 32px)",
     boxSizing: "border-box",
-    margin: "auto",
-    border: "1px solid rgba(255, 255, 255, 0.3)",
+    position: "relative",
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+  },
+  closeBtn: {
+    position: "absolute",
+    top: "clamp(12px, 3vw, 16px)",
+    right: "clamp(12px, 3vw, 16px)",
+    background: "none",
+    border: "none",
+    fontSize: 20,
+    color: "#94a3b8",
+    cursor: "pointer",
+    padding: 4,
+    zIndex: 10,
+  },
+  cardHeader: { 
+    textAlign: "center", 
+    marginBottom: "clamp(16px, 4vw, 24px)",
+    paddingRight: 24, // Space for close button
+  },
+  cardTitle: { 
+    fontSize: "clamp(18px, 4.5vw, 22px)", 
+    fontWeight: 600, 
+    color: "#1e293b", 
+    margin: "0 0 6px",
+    lineHeight: 1.3,
+  },
+  cardSubtitle: { 
+    fontSize: "clamp(12px, 3vw, 14px)", 
+    color: "#64748b", 
+    margin: 0,
+    lineHeight: 1.4,
   },
 
-  title: {
-    fontSize: 26,
-    fontWeight: 700,
-    color: "#ffffff",
-    margin: "0 0 8px 0",
-    textAlign: "center",
-    textShadow: "0 2px 10px rgba(0,0,0,0.2)",
+  // Input
+  inputGroup: { marginBottom: "clamp(16px, 4vw, 20px)" },
+  inputLabel: { 
+    display: "block", 
+    fontSize: "clamp(12px, 3vw, 13px)", 
+    fontWeight: 500, 
+    color: "#475569", 
+    marginBottom: 8 
   },
-  subtitle: {
-    fontSize: 14,
-    textAlign: "center",
-    color: "rgba(255, 255, 255, 0.9)",
-    marginBottom: 24,
-    marginTop: 0,
-    fontWeight: 500,
-  },
-
-  // Form Elements
   input: {
     width: "100%",
-    padding: 12,
-    fontSize: 15,
-    marginBottom: 12,
+    padding: "clamp(10px, 2.5vw, 14px)",
+    fontSize: "clamp(14px, 3.5vw, 16px)",
     border: "2px solid #e2e8f0",
-    borderRadius: 12,
-    boxSizing: "border-box",
+    borderRadius: 10,
     outline: "none",
-    transition: "all 0.2s",
-    background: "#ffffff",
-    color: "#1e293b",
-  },
-  fileLabel: {
-    display: "block",
-    width: "100%",
-    padding: 14,
-    fontSize: 15,
-    fontWeight: 600,
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 14,
-    textAlign: "center",
-    cursor: "pointer",
-    marginBottom: 12,
-    transition: "all 0.3s ease",
-    boxShadow: "0 6px 20px rgba(102, 126, 234, 0.4)",
     boxSizing: "border-box",
-  },
-  fileInput: {
-    display: "none",
+    transition: "border-color 0.2s",
   },
 
-  // File List
-  fileList: {
-    marginBottom: 12,
-    border: "2px solid rgba(255, 255, 255, 0.3)",
-    borderRadius: 18,
-    padding: 14,
-    maxHeight: 280,
-    overflowY: "auto",
-    background: "rgba(255, 255, 255, 0.15)",
-    backdropFilter: "blur(10px)",
-    boxSizing: "border-box",
+  // Buttons
+  primaryBtn: {
+    width: "100%",
+    padding: "clamp(12px, 3vw, 16px)",
+    fontSize: "clamp(14px, 3.5vw, 16px)",
+    fontWeight: 600,
+    background: "linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 10,
+    cursor: "pointer",
   },
-  fileListTitle: {
-    margin: "0 0 12px 0",
-    fontSize: 14,
-    fontWeight: 700,
-    color: "#ffffff",
-    textShadow: "0 1px 3px rgba(0,0,0,0.2)",
+
+  // Drop Zone
+  dropZone: {
+    border: "2px dashed #e2e8f0",
+    borderRadius: 12,
+    padding: "clamp(20px, 5vw, 32px) clamp(12px, 3vw, 16px)",
+    textAlign: "center",
+    marginBottom: "clamp(12px, 3vw, 16px)",
+    transition: "all 0.2s",
+    cursor: "pointer",
+  },
+  dropIcon: { marginBottom: "clamp(8px, 2vw, 12px)" },
+  dropLabel: { 
+    fontSize: "clamp(12px, 3vw, 14px)", 
+    color: "#64748b", 
+    cursor: "pointer", 
+    display: "block",
+    lineHeight: 1.5,
+  },
+  dropLink: { color: "#7c3aed", fontWeight: 500 },
+  dropHint: { 
+    fontSize: "clamp(10px, 2.5vw, 12px)", 
+    color: "#94a3b8", 
+    margin: "8px 0 0" 
+  },
+
+  // Files List
+  filesList: { 
+    flex: 1,
+    marginBottom: "clamp(12px, 3vw, 16px)",
+    overflowY: "auto",
+    minHeight: 0,
+  },
+  filesCount: { 
+    fontSize: "clamp(12px, 3vw, 13px)", 
+    fontWeight: 600, 
+    color: "#475569", 
+    margin: "0 0 10px" 
   },
   fileItem: {
     display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: 12,
-    marginBottom: 8,
-    background: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 14,
-    border: "1px solid rgba(255, 255, 255, 0.5)",
-    transition: "all 0.2s ease",
-    boxSizing: "border-box",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-  },
-  thumbnail: {
-    width: 50,
-    height: 50,
-    objectFit: "cover",
+    alignItems: "flex-start",
+    gap: "clamp(8px, 2vw, 12px)",
+    padding: "clamp(10px, 2.5vw, 12px)",
+    background: "#f8fafc",
     borderRadius: 10,
-    border: "2px solid #e2e8f0",
+    marginBottom: 8,
+  },
+  fileIcon: { 
+    fontSize: "clamp(20px, 5vw, 24px)", 
+    lineHeight: 1,
     flexShrink: 0,
   },
-  fileInfo: {
-    flex: 1,
-    minWidth: 0,
-    overflow: "hidden",
-  },
+  fileInfo: { flex: 1, minWidth: 0, overflow: "hidden" },
   fileName: {
-    fontSize: 13,
-    fontWeight: 600,
+    fontSize: "clamp(12px, 3vw, 14px)",
+    fontWeight: 500,
     color: "#1e293b",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    marginBottom: 4,
   },
-  fileSize: {
-    fontSize: 11,
-    color: "#64748b",
+  fileMeta: { 
+    fontSize: "clamp(10px, 2.5vw, 12px)", 
+    color: "#64748b", 
+    marginTop: 2 
   },
-  deleteBtn: {
-    background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)",
-    border: "none",
-    fontSize: 14,
-    cursor: "pointer",
-    padding: 8,
-    borderRadius: 10,
-    transition: "all 0.2s ease",
-    width: 34,
-    height: 34,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+  progressBar: {
+    height: 4,
+    background: "#e2e8f0",
+    borderRadius: 2,
+    marginTop: 8,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    background: "linear-gradient(90deg, #7c3aed, #a78bfa)",
+    borderRadius: 2,
+    transition: "width 0.2s",
+  },
+  fileActions: { 
+    display: "flex", 
+    alignItems: "center", 
+    gap: 6,
     flexShrink: 0,
-    color: "#ffffff",
-    boxShadow: "0 2px 8px rgba(255, 107, 107, 0.3)",
+  },
+  progressText: { 
+    fontSize: "clamp(10px, 2.5vw, 12px)", 
+    fontWeight: 600, 
+    color: "#7c3aed" 
+  },
+  removeBtn: {
+    background: "none",
+    border: "none",
+    fontSize: "clamp(14px, 3.5vw, 16px)",
+    color: "#94a3b8",
+    cursor: "pointer",
+    padding: 4,
   },
 
-  // Send Button
-  sendBtn: {
-    width: "100%",
-    padding: 14,
-    fontSize: 16,
-    fontWeight: 700,
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  // Action Buttons
+  actionButtons: { 
+    display: "flex", 
+    gap: "clamp(8px, 2vw, 12px)",
+    flexWrap: "wrap",
+  },
+  cancelBtn: {
+    flex: 1,
+    minWidth: 100,
+    padding: "clamp(10px, 2.5vw, 14px)",
+    fontSize: "clamp(13px, 3vw, 14px)",
+    fontWeight: 600,
+    background: "#f1f5f9",
+    color: "#475569",
+    border: "none",
+    borderRadius: 10,
+    cursor: "pointer",
+  },
+  attachBtn: {
+    flex: 1,
+    minWidth: 100,
+    padding: "clamp(10px, 2.5vw, 14px)",
+    fontSize: "clamp(13px, 3vw, 14px)",
+    fontWeight: 600,
+    background: "linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)",
     color: "#fff",
     border: "none",
-    borderRadius: 14,
+    borderRadius: 10,
     cursor: "pointer",
-    transition: "all 0.3s ease",
-    boxShadow: "0 6px 20px rgba(102, 126, 234, 0.4)",
-    boxSizing: "border-box",
-  },
-  status: {
-    marginTop: 12,
-    textAlign: "center",
-    fontSize: 13,
-    fontWeight: 600,
-    padding: 12,
-    borderRadius: 12,
-    background: "rgba(255, 255, 255, 0.9)",
-    color: "#1e293b",
-    wordBreak: "break-word",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
 
-  // Preview/History Page Styles
-  emptyState: {
-    textAlign: "center",
-    color: "#64748b",
-    padding: "40px 20px",
-    fontSize: 14,
+  // Payment
+  successIcon: { 
+    fontSize: "clamp(48px, 12vw, 64px)", 
+    textAlign: "center", 
+    marginBottom: "clamp(12px, 3vw, 16px)" 
   },
-  historyList: {
-    maxHeight: 400,
-    overflowY: "auto",
-  },
-  historyItem: {
-    background: "#f8fafc",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    border: "1px solid #e2e8f0",
-  },
-  historyHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-    fontSize: 14,
-  },
-  historyDate: {
-    fontSize: 11,
-    color: "#64748b",
-  },
-  historyFiles: {
-    paddingLeft: 8,
-  },
-  historyFile: {
-    fontSize: 12,
-    color: "#475569",
-    padding: "4px 0",
-  },
-
-  // File Preview Modal Styles
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0, 0, 0, 0.9)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-    padding: "20px",
-    boxSizing: "border-box",
-  },
-  modalContent: {
-    background: "#ffffff",
-    borderRadius: 20,
-    padding: "16px",
-    width: "95vw",
-    maxWidth: "800px",
-    height: "90vh",
-    display: "flex",
-    flexDirection: "column",
-    position: "relative",
-    boxSizing: "border-box",
-    overflow: "hidden", // Prevent double scrollbars
-  },
-  modalClose: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    background: "#fee2e2",
-    border: "none",
-    borderRadius: "50%",
-    width: 36,
-    height: 36,
-    fontSize: 20,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "bold",
-    color: "#dc2626",
-    zIndex: 10,
-  },
-  modalTitle: {
-    fontSize: 16,
+  paymentAmount: {
+    fontSize: "clamp(24px, 7vw, 32px)",
     fontWeight: 700,
-    color: "#1e293b",
-    marginBottom: 4,
-    marginTop: 0,
-    paddingRight: 40,
-    wordBreak: "break-word",
-    flexShrink: 0,
-  },
-  modalSize: {
-    fontSize: 13,
-    color: "#64748b",
-    marginBottom: 16,
-    marginTop: 0,
-    flexShrink: 0,
-  },
-  modalImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-    borderRadius: 8,
-    flex: 1,
-    minHeight: 0,
-  },
-  modalPdf: {
-    width: "100%",
-    flex: 1,
-    border: "none",
-    borderRadius: 8,
-    background: "#f1f5f9",
-  },
-  pdfContainer: {
-    width: "100%",
-    flex: 1,
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    background: "#f1f5f9",
-    borderRadius: 12,
-    padding: "20px 0",
-  },
-  pdfPageWrapper: {
-    marginBottom: 16,
-    display: 'flex',
-    justifyContent: 'center',
-    width: '100%',
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", // Paper shadow
-  },
-  pdfLoading: {
-    padding: 20,
-    color: "#64748b",
-  },
-  pdfError: {
-    padding: 20,
-    color: "#ef4444",
-  },
-  pdfPageInfo: {
-    fontSize: 12,
-    color: "#64748b",
-    marginTop: 8,
+    color: "#7c3aed",
     textAlign: "center",
+    margin: "clamp(12px, 3vw, 16px) 0",
   },
-  pdfFallback: {
-    textAlign: "center",
-    padding: "40px 20px",
-    minHeight: "70vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pdfMessage: {
-    fontSize: 14,
-    color: "#64748b",
-    marginBottom: 20,
-    marginTop: 0,
-  },
-  downloadBtn: {
+  paymentAmountSub: { 
+    fontSize: "clamp(11px, 3vw, 14px)", 
+    fontWeight: 400, 
+    color: "#64748b", 
+    marginLeft: 8,
     display: "inline-block",
-    padding: "12px 24px",
-    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-    color: "#ffffff",
-    textDecoration: "none",
+  },
+  sectionTitle: { 
+    fontSize: "clamp(12px, 3vw, 14px)", 
+    fontWeight: 600, 
+    color: "#475569", 
+    margin: "clamp(16px, 4vw, 24px) 0 clamp(8px, 2vw, 12px)" 
+  },
+  paymentBtn: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    gap: "clamp(12px, 3vw, 16px)",
+    padding: "clamp(12px, 3vw, 16px)",
+    background: "#f8fafc",
+    border: "2px solid #e2e8f0",
     borderRadius: 12,
-    fontSize: 15,
-    fontWeight: 600,
-    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-    transition: "all 0.2s",
+    cursor: "pointer",
+    marginBottom: "clamp(8px, 2vw, 12px)",
+    textAlign: "left",
   },
-  modalFileIcon: {
-    textAlign: "center",
-    padding: "40px 20px",
+  paymentBtnIcon: { 
+    fontSize: "clamp(24px, 6vw, 32px)",
+    flexShrink: 0,
   },
-  fileIconLarge: {
-    fontSize: 80,
-    marginBottom: 16,
+  paymentBtnTitle: { 
+    fontSize: "clamp(13px, 3.5vw, 15px)", 
+    fontWeight: 600, 
+    color: "#1e293b" 
   },
-  fileType: {
-    fontSize: 14,
-    color: "#64748b",
-    marginTop: 0,
-  },
-  noPreview: {
-    fontSize: 13,
-    color: "#94a3b8",
-    fontStyle: "italic",
-    marginTop: 8,
+  paymentBtnDesc: { 
+    fontSize: "clamp(10px, 2.5vw, 12px)", 
+    color: "#64748b" 
   },
 };
