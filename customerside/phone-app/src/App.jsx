@@ -8,6 +8,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [currentPage, setCurrentPage] = useState("upload"); // "upload" or "preview"
   const [uploadHistory, setUploadHistory] = useState([]);
+  const [previewFile, setPreviewFile] = useState(null); // For file preview modal
 
   // Generate random ID on mount
   useEffect(() => {
@@ -212,17 +213,28 @@ export default function App() {
             </h3>
             {selectedFiles.map((fileObj) => (
               <div key={fileObj.id} style={styles.fileItem}>
-                {fileObj.preview && (
-                  <img
-                    src={fileObj.preview}
-                    alt={fileObj.file.name}
-                    style={styles.thumbnail}
-                  />
-                )}
-                <div style={styles.fileInfo}>
-                  <div style={styles.fileName}>{fileObj.file.name}</div>
-                  <div style={styles.fileSize}>
-                    {(fileObj.file.size / 1024).toFixed(2)} KB
+                <div 
+                  onClick={() => setPreviewFile(fileObj)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flex: 1,
+                    cursor: "pointer",
+                  }}
+                >
+                  {fileObj.preview && (
+                    <img
+                      src={fileObj.preview}
+                      alt={fileObj.file.name}
+                      style={styles.thumbnail}
+                    />
+                  )}
+                  <div style={styles.fileInfo}>
+                    <div style={styles.fileName}>{fileObj.file.name}</div>
+                    <div style={styles.fileSize}>
+                      {(fileObj.file.size / 1024).toFixed(2)} KB
+                    </div>
                   </div>
                 </div>
                 <button
@@ -242,6 +254,47 @@ export default function App() {
 
         {status && <p style={styles.status}>{status}</p>}
       </div>
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <div style={styles.modalOverlay} onClick={() => setPreviewFile(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={() => setPreviewFile(null)} 
+              style={styles.modalClose}
+            >
+              ✕
+            </button>
+            
+            <h3 style={styles.modalTitle}>{previewFile.file.name}</h3>
+            <p style={styles.modalSize}>
+              {(previewFile.file.size / 1024).toFixed(2)} KB • {previewFile.file.type}
+            </p>
+
+            {previewFile.preview ? (
+              // Image preview only
+              <img
+                src={previewFile.preview}
+                alt={previewFile.file.name}
+                style={styles.modalImage}
+              />
+            ) : (
+              // Other file types - no preview
+              <div style={styles.modalFileIcon}>
+                <div style={styles.fileIconLarge}>
+                  {previewFile.file.type === "application/pdf" ? "📄" : "📎"}
+                </div>
+                <p style={styles.fileType}>
+                  {previewFile.file.type || "Unknown type"}
+                </p>
+                <p style={styles.noPreview}>
+                  Preview not available
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -528,5 +581,123 @@ const styles = {
     fontSize: 12,
     color: "#475569",
     padding: "4px 0",
+  },
+  
+  // File Preview Modal Styles
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(0, 0, 0, 0.9)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+    padding: "20px",
+    boxSizing: "border-box",
+  },
+  modalContent: {
+    background: "#ffffff",
+    borderRadius: 20,
+    padding: "24px",
+    maxWidth: "90vw",
+    maxHeight: "90vh",
+    overflow: "auto",
+    position: "relative",
+    boxSizing: "border-box",
+  },
+  modalClose: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    background: "#fee2e2",
+    border: "none",
+    borderRadius: "50%",
+    width: 36,
+    height: 36,
+    fontSize: 20,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: "bold",
+    color: "#dc2626",
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#1e293b",
+    marginBottom: 4,
+    marginTop: 0,
+    paddingRight: 40,
+    wordBreak: "break-word",
+  },
+  modalSize: {
+    fontSize: 13,
+    color: "#64748b",
+    marginBottom: 16,
+    marginTop: 0,
+  },
+  modalImage: {
+    width: "100%",
+    height: "auto",
+    maxHeight: "70vh",
+    objectFit: "contain",
+    borderRadius: 12,
+    border: "2px solid #e2e8f0",
+  },
+  modalPdf: {
+    width: "100%",
+    height: "70vh",
+    border: "2px solid #e2e8f0",
+    borderRadius: 12,
+  },
+  pdfFallback: {
+    textAlign: "center",
+    padding: "40px 20px",
+    minHeight: "70vh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pdfMessage: {
+    fontSize: 14,
+    color: "#64748b",
+    marginBottom: 20,
+    marginTop: 0,
+  },
+  downloadBtn: {
+    display: "inline-block",
+    padding: "12px 24px",
+    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+    color: "#ffffff",
+    textDecoration: "none",
+    borderRadius: 12,
+    fontSize: 15,
+    fontWeight: 600,
+    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+    transition: "all 0.2s",
+  },
+  modalFileIcon: {
+    textAlign: "center",
+    padding: "40px 20px",
+  },
+  fileIconLarge: {
+    fontSize: 80,
+    marginBottom: 16,
+  },
+  fileType: {
+    fontSize: 14,
+    color: "#64748b",
+    marginTop: 0,
+  },
+  noPreview: {
+    fontSize: 13,
+    color: "#94a3b8",
+    fontStyle: "italic",
+    marginTop: 8,
   },
 };
