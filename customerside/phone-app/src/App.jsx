@@ -150,7 +150,14 @@ export default function App() {
               {uploadHistory.map((upload, index) => (
                 <div key={index} style={styles.historyItem}>
                   <div style={styles.historyHeader}>
-                    <strong>{upload.username}</strong>
+                    <div>
+                      <strong>{upload.username}</strong>
+                      {upload.status && (
+                        <span style={getStatusBadgeStyle(upload.status)}>
+                          {upload.status.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
                     <span style={styles.historyDate}>
                       {new Date(upload.timestamp).toLocaleString()}
                     </span>
@@ -245,6 +252,27 @@ export default function App() {
     </div>
   );
 }
+
+// Helper function for status badge styling
+const getStatusBadgeStyle = (status) => {
+  const baseStyle = {
+    marginLeft: 8,
+    padding: "4px 8px",
+    borderRadius: 6,
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: "0.5px",
+  };
+
+  const statusColors = {
+    pending: { background: "#fef3c7", color: "#92400e" },
+    approved: { background: "#d1fae5", color: "#065f46" },
+    printed: { background: "#dbeafe", color: "#1e40af" },
+    rejected: { background: "#fee2e2", color: "#991b1b" },
+  };
+
+  return { ...baseStyle, ...(statusColors[status] || statusColors.pending) };
+};
 
 const styles = {
   // Splash Screen Styles
