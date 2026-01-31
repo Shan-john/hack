@@ -6,8 +6,7 @@ export default function App() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [status, setStatus] = useState("");
   const [showSplash, setShowSplash] = useState(true);
-  const [currentPage, setCurrentPage] = useState("upload"); // "upload" or "preview"
-  const [uploadHistory, setUploadHistory] = useState([]);
+  const [previewFile, setPreviewFile] = useState(null); // For file preview modal
 
   // Generate random ID on mount
   useEffect(() => {
@@ -20,26 +19,6 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, []);
-
-  // Fetch upload history when preview page is opened
-  useEffect(() => {
-    if (currentPage === "preview") {
-      fetchUploadHistory();
-    }
-  }, [currentPage]);
-
-  const fetchUploadHistory = async () => {
-    try {
-      const serverIp = window.location.hostname;
-      const res = await fetch(`http://${serverIp}:3000/uploads`);
-      if (res.ok) {
-        const data = await res.json();
-        setUploadHistory(data.uploads || []);
-      }
-    } catch (e) {
-      console.error("Error fetching upload history:", e);
-    }
-  };
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
@@ -128,69 +107,11 @@ export default function App() {
     );
   }
 
-  // Preview Page
-  if (currentPage === "preview") {
-    return (
-      <div style={styles.wrap}>
-        <div style={styles.card}>
-          <button 
-            onClick={() => setCurrentPage("upload")} 
-            style={styles.backBtn}
-          >
-            ← Back
-          </button>
-          
-          <h1 style={styles.title}>📋 Upload History</h1>
-          <p style={styles.subtitle}>View all uploaded files</p>
-
-          {uploadHistory.length === 0 ? (
-            <p style={styles.emptyState}>No uploads yet</p>
-          ) : (
-            <div style={styles.historyList}>
-              {uploadHistory.map((upload, index) => (
-                <div key={index} style={styles.historyItem}>
-                  <div style={styles.historyHeader}>
-                    <div>
-                      <strong>{upload.username}</strong>
-                      {upload.status && (
-                        <span style={getStatusBadgeStyle(upload.status)}>
-                          {upload.status.toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <span style={styles.historyDate}>
-                      {new Date(upload.timestamp).toLocaleString()}
-                    </span>
-                  </div>
-                  <div style={styles.historyFiles}>
-                    {upload.files.map((file, fileIndex) => (
-                      <div key={fileIndex} style={styles.historyFile}>
-                        📄 {file.originalName} ({(file.size / 1024).toFixed(2)} KB)
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   // Main Upload Page
   return (
     <div style={styles.wrap}>
       <div style={styles.card}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>📱 File Upload</h1>
-          <button 
-            onClick={() => setCurrentPage("preview")} 
-            style={styles.previewBtn}
-          >
-            📋
-          </button>
-        </div>
+        <h1 style={styles.title}>📱 File Upload</h1>
         <p style={styles.subtitle}>Send files from your phone to laptop</p>
 
         <input
@@ -219,17 +140,28 @@ export default function App() {
             </h3>
             {selectedFiles.map((fileObj) => (
               <div key={fileObj.id} style={styles.fileItem}>
-                {fileObj.preview && (
-                  <img
-                    src={fileObj.preview}
-                    alt={fileObj.file.name}
-                    style={styles.thumbnail}
-                  />
-                )}
-                <div style={styles.fileInfo}>
-                  <div style={styles.fileName}>{fileObj.file.name}</div>
-                  <div style={styles.fileSize}>
-                    {(fileObj.file.size / 1024).toFixed(2)} KB
+                <div 
+                  onClick={() => setPreviewFile(fileObj)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flex: 1,
+                    cursor: "pointer",
+                  }}
+                >
+                  {fileObj.preview && (
+                    <img
+                      src={fileObj.preview}
+                      alt={fileObj.file.name}
+                      style={styles.thumbnail}
+                    />
+                  )}
+                  <div style={styles.fileInfo}>
+                    <div style={styles.fileName}>{fileObj.file.name}</div>
+                    <div style={styles.fileSize}>
+                      {(fileObj.file.size / 1024).toFixed(2)} KB
+                    </div>
                   </div>
                 </div>
                 <button
@@ -249,6 +181,47 @@ export default function App() {
 
         {status && <p style={styles.status}>{status}</p>}
       </div>
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <div style={styles.modalOverlay} onClick={() => setPreviewFile(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={() => setPreviewFile(null)} 
+              style={styles.modalClose}
+            >
+              ✕
+            </button>
+            
+            <h3 style={styles.modalTitle}>{previewFile.file.name}</h3>
+            <p style={styles.modalSize}>
+              {(previewFile.file.size / 1024).toFixed(2)} KB • {previewFile.file.type}
+            </p>
+
+            {previewFile.preview ? (
+              // Image preview only
+              <img
+                src={previewFile.preview}
+                alt={previewFile.file.name}
+                style={styles.modalImage}
+              />
+            ) : (
+              // Other file types - no preview
+              <div style={styles.modalFileIcon}>
+                <div style={styles.fileIconLarge}>
+                  {previewFile.file.type === "application/pdf" ? "📄" : "📎"}
+                </div>
+                <p style={styles.fileType}>
+                  {previewFile.file.type || "Unknown type"}
+                </p>
+                <p style={styles.noPreview}>
+                  Preview not available
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -279,7 +252,9 @@ const styles = {
   splashWrap: {
     minHeight: "100vh",
     minWidth: "100vw",
-    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
+    backgroundSize: "200% 200%",
+    animation: "gradientShift 6s ease infinite",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -293,6 +268,7 @@ const styles = {
     fontSize: 80,
     marginBottom: 20,
     animation: "bounce 1.5s infinite",
+    filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.2))",
   },
   splashTitle: {
     fontSize: 32,
@@ -300,6 +276,7 @@ const styles = {
     color: "#ffffff",
     marginBottom: 8,
     marginTop: 0,
+    textShadow: "0 2px 10px rgba(0,0,0,0.2)",
   },
   splashSubtitle: {
     fontSize: 16,
@@ -321,8 +298,10 @@ const styles = {
   wrap: {
     minHeight: "100vh",
     minWidth: "100vw",
-    background: "linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 50%, #faf5ff 100%)",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)",
     backgroundAttachment: "fixed",
+    backgroundSize: "400% 400%",
+    animation: "gradientShift 15s ease infinite",
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "center",
@@ -335,56 +314,32 @@ const styles = {
   card: {
     maxWidth: 420,
     width: "100%",
-    background: "rgba(255, 255, 255, 0.95)",
-    backdropFilter: "blur(10px)",
+    background: "rgba(255, 255, 255, 0.15)",
+    backdropFilter: "blur(20px) saturate(180%)",
+    WebkitBackdropFilter: "blur(20px) saturate(180%)",
     borderRadius: 24,
-    padding: "24px",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.1)",
+    padding: "28px",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.2)",
     boxSizing: "border-box",
     margin: "auto",
+    border: "1px solid rgba(255, 255, 255, 0.3)",
   },
   
-  // Header with Preview Button
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 700,
-    color: "#1e293b",
-    margin: 0,
-  },
-  previewBtn: {
-    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-    border: "none",
-    borderRadius: 12,
-    padding: "8px 12px",
-    fontSize: 20,
-    cursor: "pointer",
-    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-    transition: "all 0.2s",
-  },
-  backBtn: {
-    background: "#f1f5f9",
-    border: "none",
-    borderRadius: 10,
-    padding: "8px 16px",
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#1e293b",
-    cursor: "pointer",
-    marginBottom: 16,
-    transition: "all 0.2s",
+    color: "#ffffff",
+    margin: "0 0 8px 0",
+    textAlign: "center",
+    textShadow: "0 2px 10px rgba(0,0,0,0.2)",
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 14,
     textAlign: "center",
-    color: "#64748b",
+    color: "rgba(255, 255, 255, 0.9)",
     marginBottom: 24,
     marginTop: 0,
+    fontWeight: 500,
   },
   
   // Form Elements
@@ -404,18 +359,18 @@ const styles = {
   fileLabel: {
     display: "block",
     width: "100%",
-    padding: 12,
+    padding: 14,
     fontSize: 15,
     fontWeight: 600,
-    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     color: "#fff",
     border: "none",
-    borderRadius: 12,
+    borderRadius: 14,
     textAlign: "center",
     cursor: "pointer",
     marginBottom: 12,
-    transition: "all 0.3s",
-    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+    transition: "all 0.3s ease",
+    boxShadow: "0 6px 20px rgba(102, 126, 234, 0.4)",
     boxSizing: "border-box",
   },
   fileInput: {
@@ -425,31 +380,34 @@ const styles = {
   // File List
   fileList: {
     marginBottom: 12,
-    border: "2px solid #e2e8f0",
-    borderRadius: 16,
-    padding: 12,
+    border: "2px solid rgba(255, 255, 255, 0.3)",
+    borderRadius: 18,
+    padding: 14,
     maxHeight: 280,
     overflowY: "auto",
-    background: "#f8fafc",
+    background: "rgba(255, 255, 255, 0.15)",
+    backdropFilter: "blur(10px)",
     boxSizing: "border-box",
   },
   fileListTitle: {
     margin: "0 0 12px 0",
     fontSize: 14,
     fontWeight: 700,
-    color: "#1e293b",
+    color: "#ffffff",
+    textShadow: "0 1px 3px rgba(0,0,0,0.2)",
   },
   fileItem: {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    padding: 10,
+    padding: 12,
     marginBottom: 8,
-    background: "#ffffff",
-    borderRadius: 12,
-    border: "1px solid #e2e8f0",
-    transition: "all 0.2s",
+    background: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 14,
+    border: "1px solid rgba(255, 255, 255, 0.5)",
+    transition: "all 0.2s ease",
     boxSizing: "border-box",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
   thumbnail: {
     width: 50,
@@ -478,46 +436,49 @@ const styles = {
     color: "#64748b",
   },
   deleteBtn: {
-    background: "#fee2e2",
+    background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)",
     border: "none",
-    fontSize: 16,
+    fontSize: 14,
     cursor: "pointer",
-    padding: 6,
-    borderRadius: 8,
-    transition: "all 0.2s",
-    width: 32,
-    height: 32,
+    padding: 8,
+    borderRadius: 10,
+    transition: "all 0.2s ease",
+    width: 34,
+    height: 34,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    color: "#ffffff",
+    boxShadow: "0 2px 8px rgba(255, 107, 107, 0.3)",
   },
   
   // Send Button
   sendBtn: {
     width: "100%",
-    padding: 12,
-    fontSize: 15,
-    fontWeight: 600,
-    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+    padding: 14,
+    fontSize: 16,
+    fontWeight: 700,
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     color: "#fff",
     border: "none",
-    borderRadius: 12,
+    borderRadius: 14,
     cursor: "pointer",
-    transition: "all 0.3s",
-    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+    transition: "all 0.3s ease",
+    boxShadow: "0 6px 20px rgba(102, 126, 234, 0.4)",
     boxSizing: "border-box",
   },
   status: {
     marginTop: 12,
     textAlign: "center",
     fontSize: 13,
-    fontWeight: 500,
-    padding: 10,
-    borderRadius: 10,
-    background: "#f1f5f9",
+    fontWeight: 600,
+    padding: 12,
+    borderRadius: 12,
+    background: "rgba(255, 255, 255, 0.9)",
     color: "#1e293b",
     wordBreak: "break-word",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
   
   // Preview/History Page Styles
@@ -556,5 +517,123 @@ const styles = {
     fontSize: 12,
     color: "#475569",
     padding: "4px 0",
+  },
+  
+  // File Preview Modal Styles
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(0, 0, 0, 0.9)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+    padding: "20px",
+    boxSizing: "border-box",
+  },
+  modalContent: {
+    background: "#ffffff",
+    borderRadius: 20,
+    padding: "24px",
+    maxWidth: "90vw",
+    maxHeight: "90vh",
+    overflow: "auto",
+    position: "relative",
+    boxSizing: "border-box",
+  },
+  modalClose: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    background: "#fee2e2",
+    border: "none",
+    borderRadius: "50%",
+    width: 36,
+    height: 36,
+    fontSize: 20,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: "bold",
+    color: "#dc2626",
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#1e293b",
+    marginBottom: 4,
+    marginTop: 0,
+    paddingRight: 40,
+    wordBreak: "break-word",
+  },
+  modalSize: {
+    fontSize: 13,
+    color: "#64748b",
+    marginBottom: 16,
+    marginTop: 0,
+  },
+  modalImage: {
+    width: "100%",
+    height: "auto",
+    maxHeight: "70vh",
+    objectFit: "contain",
+    borderRadius: 12,
+    border: "2px solid #e2e8f0",
+  },
+  modalPdf: {
+    width: "100%",
+    height: "70vh",
+    border: "2px solid #e2e8f0",
+    borderRadius: 12,
+  },
+  pdfFallback: {
+    textAlign: "center",
+    padding: "40px 20px",
+    minHeight: "70vh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pdfMessage: {
+    fontSize: 14,
+    color: "#64748b",
+    marginBottom: 20,
+    marginTop: 0,
+  },
+  downloadBtn: {
+    display: "inline-block",
+    padding: "12px 24px",
+    background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+    color: "#ffffff",
+    textDecoration: "none",
+    borderRadius: 12,
+    fontSize: 15,
+    fontWeight: 600,
+    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+    transition: "all 0.2s",
+  },
+  modalFileIcon: {
+    textAlign: "center",
+    padding: "40px 20px",
+  },
+  fileIconLarge: {
+    fontSize: 80,
+    marginBottom: 16,
+  },
+  fileType: {
+    fontSize: 14,
+    color: "#64748b",
+    marginTop: 0,
+  },
+  noPreview: {
+    fontSize: 13,
+    color: "#94a3b8",
+    fontStyle: "italic",
+    marginTop: 8,
   },
 };
