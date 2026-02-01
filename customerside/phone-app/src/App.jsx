@@ -30,6 +30,7 @@ export default function App() {
       status: "pending", // pending, uploading, completed
       progress: 0,
       copies: 1, // Number of copies
+      orientation: "portrait", // portrait or landscape (for images)
       previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
     }));
     setSelectedFiles((prev) => [...prev, ...newFiles]);
@@ -39,6 +40,12 @@ export default function App() {
     const count = Math.max(1, Math.min(99, parseInt(copies) || 1));
     setSelectedFiles((prev) => prev.map(f => 
       f.id === fileId ? { ...f, copies: count } : f
+    ));
+  };
+
+  const updateOrientation = (fileId, orientation) => {
+    setSelectedFiles((prev) => prev.map(f => 
+      f.id === fileId ? { ...f, orientation } : f
     ));
   };
 
@@ -335,6 +342,20 @@ export default function App() {
                       >+</button>
                     </div>
                   )}
+                  {/* Orientation selector for images */}
+                  {fileObj.status !== "uploading" && fileObj.file.type.startsWith("image/") && (
+                    <div style={styles.orientationRow}>
+                      <span style={styles.copyLabel}>Orientation:</span>
+                      <select 
+                        value={fileObj.orientation}
+                        onChange={(e) => updateOrientation(fileObj.id, e.target.value)}
+                        style={styles.orientationSelect}
+                      >
+                        <option value="portrait">📄 Portrait</option>
+                        <option value="landscape">🖼️ Landscape</option>
+                      </select>
+                    </div>
+                  )}
                   {fileObj.status === "uploading" && (
                     <div style={styles.progressBar}>
                       <div style={{ ...styles.progressFill, width: `${fileObj.progress}%` }} />
@@ -403,8 +424,7 @@ export default function App() {
 const styles = {
   // Splash Screen
   splashWrap: {
-    height: "100vh", // Use 100vh as base
-    height: "100dvh", // Full viewport height including mobile URL bars etc
+    height: "100dvh", // Full viewport height including mobile URL bars (falls back to 100vh)
     width: "100vw",   // Full viewport width
     background: "linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)",
     display: "flex",
@@ -781,6 +801,25 @@ const styles = {
     textAlign: "center",
     fontSize: 12,
     fontWeight: 600,
+  },
+
+  // Orientation controls
+  orientationRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+  },
+  orientationSelect: {
+    padding: "4px 8px",
+    borderRadius: 6,
+    border: "1px solid #e2e8f0",
+    background: "#fff",
+    color: "#1e293b",
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: "pointer",
+    outline: "none",
   },
 
   // Preview Modal

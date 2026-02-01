@@ -1,83 +1,134 @@
 {
   "uploads": [
     {
-      "jobId": "JOB_1769879855627_mkcv0uzcp",
-      "username": "sheeja",
-      "userId": "803127",
-      "timestamp": "2026-01-31T17:17:35.627Z",
+      "jobId": "JOB_1769921839144_l16zwsovr",
+      "username": "shan",
+      "userId": "607922",
+      "timestamp": "2026-02-01T04:57:19.144Z",
       "status": "printed",
       "fileCount": 1,
       "files": [
         {
-          "originalName": "download.png",
-          "savedName": "803127_1769879855581_download.png",
-          "size": 3928369,
-          "mimeType": "image/png",
-          "uploadedAt": "2026-01-31T17:17:35.627Z"
+          "originalName": "Frame 1000001109.pdf",
+          "savedName": "607922_1769921839135_Frame 1000001109.pdf",
+          "size": 326200,
+          "mimeType": "application/pdf",
+          "uploadedAt": "2026-02-01T04:57:19.144Z"
         }
       ],
-      "approvedAt": "2026-01-31T17:17:46.508Z",
-      "printedAt": "2026-01-31T17:17:51.295Z",
-      "printerIp": "127.0.0.1",
-      "printResults": {
-        "printed": 1,
-        "failed": 0
-      }, 
-      "filesDeleted": true,
-      "filesDeletedAt": "2026-01-31T17:17:51.300Z"
-    },
-    {
-      "jobId": "JOB_1769880219065_fceu5h3kd",
-      "username": "sheeja",
-      "userId": "271223",
-      "timestamp": "2026-01-31T17:23:39.065Z",
-      "status": "approved",
-      "fileCount": 2,
-      "files": [
-        {
-          "originalName": "30c7562f86fbc884280449ea5ad72d67.png",
-          "savedName": "271223_1769880219057_30c7562f86fbc884280449ea5ad72d67.png",
-          "size": 720607,
-          "mimeType": "image/png",
-          "uploadedAt": "2026-01-31T17:23:39.065Z"
-        },
-        {
-          "originalName": "1d5fdbc8681124ec22a4a04d81f49c65.png",
-          "savedName": "271223_1769880219061_1d5fdbc8681124ec22a4a04d81f49c65.png",
-          "size": 445060,
-          "mimeType": "image/png",
-          "uploadedAt": "2026-01-31T17:23:39.065Z"
-        }
-      ],
-      "approvedAt": "2026-01-31T17:23:49.513Z",
-      "filesDeleted": true,
-      "filesDeletedAt": "2026-01-31T17:23:56.283Z"
-    },
-    {
-      "jobId": "JOB_1769880337307_897l78b9v",
-      "username": "jjj",
-      "userId": "370240",
-      "timestamp": "2026-01-31T17:25:37.307Z",
-      "status": "printed",
-      "fileCount": 1,
-      "files": [
-        {
-          "originalName": "f91f90e67e646a7fb411d5a9b5b82aa2.png",
-          "savedName": "370240_1769880337297_f91f90e67e646a7fb411d5a9b5b82aa2.png",
-          "size": 321633,
-          "mimeType": "image/png",
-          "uploadedAt": "2026-01-31T17:25:37.307Z"
-        }
-      ],
-      "approvedAt": "2026-01-31T17:25:55.219Z",
-      "printedAt": "2026-01-31T17:25:57.541Z",
+      "approvedAt": "2026-02-01T04:57:34.167Z",
+      "printedAt": "2026-02-01T04:57:40.255Z",
       "printerIp": "127.0.0.1",
       "printResults": {
         "printed": 1,
         "failed": 0
       },
       "filesDeleted": true,
-      "filesDeletedAt": "2026-01-31T17:25:57.546Z"
+      "filesDeletedAt": "2026-02-01T04:57:40.263Z"
+    },
+    {
+      "jobId": "JOB_1769922018170_41hbbbqe8",
+      "username": "hello",
+      "userId": "280580",
+      "timestamp": "2026-02-01T05:00:18.170Z",
+      "status": "printed",
+      "fileCount": 1,
+      "files": [
+        {
+          "originalName": "Frame 1000001109.pdf",
+          "savedName": "280580_1769922018160_Frame 1000001109.pdf",
+          "size": 326200,
+          "mimeType": "application/pdf",
+          "uploadedAt": "2026-02-01T05:00:18.170Z"
+        }
+      ],
+      "approvedAt": "2026-02-01T05:00:42.283Z",
+      "printedAt": "2026-02-01T05:00:43.763Z",
+      "printerIp": "127.0.0.1",
+      "printResults": {
+        "printed": 1,
+        "failed": 0
+      },
+      "filesDeleted": true,
+      "filesDeletedAt": "2026-02-01T05:00:43.772Z"
+    },
+    {
+      "jobId": "JOB_1769923941877_xgg8nq93u",
+      "username": "passprot ",
+      "userId": "600799",
+      "timestamp": "2026-02-01T05:32:21.877Z",
+      "status": "printed",
+      "fileCount": 1,
+      "files": [
+        {
+          "originalName": "Copy of Document from shanjohn.pdf",
+          "savedName": "600799_1769923941857_Copy of Document from shanjohn.pdf",
+          "size": 649494,
+          "mimeType": "application/pdf",
+          "uploadedAt": "2026-02-01T05:32:21.877Z"
+        }
+      ],
+      "approvedAt": "2026-02-01T05:33:47.732Z",
+      "printedAt": "2026-02-01T05:33:51.945Z",
+      "printerIp": "127.0.0.1",
+      "printResults": {
+        "printed": 1,
+        "failed": 0
+      },
+      "filesDeleted": true,
+      "filesDeletedAt": "2026-02-01T05:33:51.961Z"
+    },
+    {
+      "jobId": "JOB_1769927188313_174yun6go",
+      "username": "hh",
+      "userId": "138282",
+      "timestamp": "2026-02-01T06:26:28.313Z",
+      "status": "printed",
+      "fileCount": 1,
+      "files": [
+        {
+          "originalName": "HUT300 INDUSTRIAL ECONOMICS & FOREIGN TRADE, JANUARY 2024.pdf",
+          "savedName": "138282_1769927188258_HUT300 INDUSTRIAL ECONOMICS & FOREIGN TRADE, JANUARY 2024.pdf",
+          "size": 1056888,
+          "mimeType": "application/pdf",
+          "uploadedAt": "2026-02-01T06:26:28.313Z"
+        }
+      ],
+      "approvedAt": "2026-02-01T06:26:47.018Z",
+      "printedAt": "2026-02-01T06:26:52.753Z",
+      "printerIp": "127.0.0.1",
+      "printResults": {
+        "printed": 1,
+        "failed": 0
+      },
+      "filesDeleted": true,
+      "filesDeletedAt": "2026-02-01T06:26:52.765Z"
+    },
+    {
+      "jobId": "JOB_1769944893471_0jyz68gy5",
+      "username": "sj",
+      "userId": "774924",
+      "timestamp": "2026-02-01T11:21:33.471Z",
+      "status": "printed",
+      "fileCount": 1,
+      "files": [
+        {
+          "originalName": "PRCLogo.png",
+          "savedName": "774924_1769944893453_PRCLogo.png",
+          "size": 119828,
+          "mimeType": "image/png",
+          "uploadedAt": "2026-02-01T11:21:33.471Z"
+        }
+      ],
+      "approvedAt": "2026-02-01T11:21:57.349Z",
+      "printedAt": "2026-02-01T11:21:59.084Z",
+      "printerIp": "127.0.0.1",
+      "printResults": {
+        "printed": 1,
+        "failed": 0
+      },
+      "filesDeleted": true,
+      "filesDeletedAt": "2026-02-01T11:21:59.092Z"
     }
   ]
 }

@@ -2,8 +2,24 @@ const net = require("net");
 const http = require("http");
 
 // Server configuration (where to send print confirmation)
-const SERVER_HOST = "127.0.0.1";
+// Usage: node printer.js [SERVER_IP]
+// Example: node printer.js 192.168.1.100
+const SERVER_HOST = process.argv[2] || "127.0.0.1";
 const SERVER_PORT = 3000;
+
+console.log("");
+console.log("╔═══════════════════════════════════════════════════════════╗");
+console.log("║           🖨️  PRINTER CONFIGURATION                       ║");
+console.log("╠═══════════════════════════════════════════════════════════╣");
+console.log(`║  Server IP    : ${SERVER_HOST.padEnd(42)}║`);
+console.log(`║  Server Port  : ${SERVER_PORT.toString().padEnd(42)}║`);
+console.log("╚═══════════════════════════════════════════════════════════╝");
+if (SERVER_HOST === "127.0.0.1") {
+  console.log("");
+  console.log("💡 TIP: To connect to a remote server, run:");
+  console.log("   node printer.js <SERVER_IP>");
+  console.log("   Example: node printer.js 192.168.1.100");
+}
 
 const server = net.createServer(socket => {
   console.log("\n🖨️  Printer connection from", socket.remoteAddress);
@@ -46,15 +62,53 @@ const server = net.createServer(socket => {
       }
     }
     
-    // Display job info
-    console.log("═══════════════════════════════════════════");
-    console.log(`👤 Username: ${jobInfo.username}`);
-    console.log(`📄 File: ${jobInfo.fileName}`);
-    console.log(`🆔 Job ID: ${jobInfo.jobId}`);
-    console.log(`📦 Size: ${(jobInfo.fileSize / 1024).toFixed(2)} KB`);
-    console.log(`⏰ Time: ${new Date().toLocaleString()}`);
-    console.log("✅ Print job received successfully!");
-    console.log("═══════════════════════════════════════════");
+    // Get file extension/type
+    const getFileType = (fileName) => {
+      if (!fileName || fileName === "Unknown") return "Unknown";
+      const ext = fileName.split('.').pop().toUpperCase();
+      const types = {
+        'PDF': '📕 PDF Document',
+        'DOC': '📘 Word Document',
+        'DOCX': '📘 Word Document',
+        'JPG': '🖼️ JPEG Image',
+        'JPEG': '🖼️ JPEG Image',
+        'PNG': '🖼️ PNG Image',
+        'TXT': '📝 Text File',
+        'XLS': '📊 Excel Spreadsheet',
+        'XLSX': '📊 Excel Spreadsheet',
+        'PPT': '📽️ PowerPoint',
+        'PPTX': '📽️ PowerPoint'
+      };
+      return types[ext] || `📄 ${ext} File`;
+    };
+
+    // Format date and time separately
+    const now = new Date();
+    const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+    const formattedDate = now.toLocaleDateString('en-US', dateOptions);
+    const formattedTime = now.toLocaleTimeString('en-US', timeOptions);
+
+    // Get copies info
+    const copies = jobInfo.copies || 1;
+
+    // Display job info with enhanced details
+    console.log("\n");
+    console.log("╔═══════════════════════════════════════════════════════════╗");
+    console.log("║              🖨️  NEW PRINT JOB RECEIVED                   ║");
+    console.log("╠═══════════════════════════════════════════════════════════╣");
+    console.log(`║  👤 Username    : ${jobInfo.username.padEnd(40)}║`);
+    console.log(`║  📄 File Name   : ${jobInfo.fileName.padEnd(40)}║`);
+    console.log(`║  📁 File Type   : ${getFileType(jobInfo.fileName).padEnd(40)}║`);
+    console.log(`║  🆔 Job ID      : ${jobInfo.jobId.toString().padEnd(40)}║`);
+    console.log(`║  📦 File Size   : ${((jobInfo.fileSize / 1024).toFixed(2) + ' KB').padEnd(40)}║`);
+    console.log(`║  📋 Copies      : ${copies.toString().padEnd(40)}║`);
+    console.log("╠═══════════════════════════════════════════════════════════╣");
+    console.log(`║  📅 Date        : ${formattedDate.padEnd(40)}║`);
+    console.log(`║  ⏰ Time        : ${formattedTime.padEnd(40)}║`);
+    console.log("╠═══════════════════════════════════════════════════════════╣");
+    console.log("║                  ✅ PRINT JOB SUCCESSFUL                  ║");
+    console.log("╚═══════════════════════════════════════════════════════════╝");
     
     // Send feedback to server to confirm print and delete file
     sendPrintConfirmation(jobInfo);

@@ -8,7 +8,9 @@ const fs = require("fs");
 const net = require("net");
 
 // Printer Configuration
-const PRINTER_IP = "127.0.0.1"; // Default: localhost for local testing
+// Usage: node server.js [PRINTER_IP]
+// Example: node server.js 192.168.1.200
+let PRINTER_IP = process.argv[2] || "127.0.0.1"; // Mutable so it can be updated at runtime
 const PRINTER_PORT = 9100; // Raw printing port
 
 // Create uploads directory if it doesn't exist
@@ -311,14 +313,15 @@ app.post("/update-printer-ip", (req, res) => {
     return res.status(400).json({ error: "Printer IP required" });
   }
 
-  // In production, you'd want to persist this to a config file
-  // For now, we'll just acknowledge it
-  console.log(`🖨️  Printer IP updated to: ${printerIp}`);
+  // Update the printer IP at runtime
+  const oldIp = PRINTER_IP;
+  PRINTER_IP = printerIp;
+  console.log(`🖨️  Printer IP updated: ${oldIp} → ${printerIp}`);
 
   res.json({
     success: true,
-    printerIp,
-    note: "IP updated for current session. Restart server to use default."
+    printerIp: PRINTER_IP,
+    message: `Printer IP changed from ${oldIp} to ${printerIp}`
   });
 });
 
